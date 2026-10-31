@@ -10,7 +10,24 @@ A dynamic, zero-dependency Python tool to audit developer activity across all re
 - **Issue Audit**: Fetches issues opened by the author with comment counts and current states.
 - **Zero Third-Party Dependencies**: Built exclusively using standard Python 3 libraries (`urllib`, `json`, `argparse`, `unittest`).
 
-## Usage
+## Web UI Frontend
+
+A lightweight, GitHub dark-themed dashboard is included so you can review activities and reviews interactively from your browser without installing Node.js or external dependencies.
+
+### Launching the Frontend
+```bash
+python3 server.py 8080
+```
+Open **[http://localhost:8080](http://localhost:8080)** in your browser.
+
+Features on the UI:
+- **Interactive Form**: Enter organization, author handle, and optional token.
+- **Summary Metric Cards**: Instant count of PRs, review submissions, issues, and unlinked branches.
+- **Pull Requests & Review Telemetry Tab**: Color-coded review pills (`APPROVED`, `CHANGES_REQUESTED`, `COMMENTED`), dates, diff stats (+/- lines), and pending reviewer requests.
+- **Branches Without PRs Tab**: Lists orphan feature branches with commit SHAs, timestamps, and commit messages authored by the member.
+- **Issues Tab**: Full history of issues and comment engagement.
+
+## CLI Usage
 
 ### 1. Set GitHub Token
 ```bash
