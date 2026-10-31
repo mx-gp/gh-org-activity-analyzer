@@ -74,10 +74,13 @@ class GitHubOrgActivityAnalyzer:
         }
 
     def _http_request(self, url: str, method: str = "GET", data: Optional[Dict[str, Any]] = None) -> Any:
+        if not url.startswith("https://api.github.com"):
+            raise ValueError(f"Untrusted URL scheme or host: {url}")
+
         encoded_data = json.dumps(data).encode("utf-8") if data else None
         req = urllib.request.Request(url, data=encoded_data, headers=self.headers, method=method)
         try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310
                 resp_bytes = resp.read()
                 if not resp_bytes:
                     return None
