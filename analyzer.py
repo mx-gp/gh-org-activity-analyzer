@@ -6,6 +6,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from typing import Any, Dict, List, Optional
+from auth import GitHubAuthManager
 
 GITHUB_REST_API = "https://api.github.com"
 GITHUB_GRAPHQL_API = "https://api.github.com/graphql"
@@ -257,18 +258,38 @@ def main():
     parser = argparse.ArgumentParser(description="GitHub Organization Activity, Review & Branch Analyzer")
     parser.add_argument("--org", required=True, help="Target GitHub Organization")
     parser.add_argument("--author", required=True, help="Target author/user handle to filter")
+    parser.add_argument("--token", help="Direct GitHub Personal Access Token (optional if using gh cli / env / app)")
+    parser.add_argument("--app-id", help="GitHub App ID")
+    parser.add_argument("--private-key-file", help="Path to GitHub App private key (.pem) file")
+    parser.add_argument("--installation-id", help="GitHub App Installation ID")
     parser.add_argument("--include-branches-without-pr", action="store_true", help="Scan unlinked branches without PRs")
     parser.add_argument("--json", action="store_true", help="Output results formatted as JSON")
     args = parser.parse_args()
 
-    token = os.environ.get("GITHUB_TOKEN")
-    if not token:
-        print("Error: GITHUB_TOKEN environment variable is required.", file=sys.stderr)
+    private_pem = None
+    if args.private_key_file:
+        with open(args.private_key_file, "r") as f:
+            private_pem = f.read()
+
+    try:
+        token, auth_method, meta = GitHubAuthManager.resolve_token(
+            token_input=args.token,
+            app_id=args.app_id,
+            private_key_pem=private_pem,
+            installation_id=args.installation_id,
+        )
+    except Exception as e:
+        print(f"Authentication Error: {e}", file=sys.stderr)
         sys.exit(1)
 
     analyzer = GitHubOrgActivityAnalyzer(token, args.org)
 
-    output = {"org": args.org, "author": args.author}
+    output = {
+        "org": args.org,
+        "author": args.author,
+        "auth_method": auth_method,
+        "auth_details": meta,
+    }
 
     # Audit PRs & Reviews
     prs = analyzer.analyze_pull_requests(args.author)
@@ -296,6 +317,7 @@ def main():
     # Formatted Plain Text Output
     print(f"\n========================================================")
     print(f" Organization Activity Report: {args.org} | Filter: @{args.author}")
+    print(f" Active Authentication: {auth_method}")
     print(f"========================================================\n")
 
     print(f"--- [1] PULL REQUESTS & REVIEW AUDIT ({len(prs)} found) ---")

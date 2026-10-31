@@ -4,6 +4,7 @@ import os
 import sys
 from urllib.parse import urlparse
 from analyzer import GitHubOrgActivityAnalyzer
+from auth import GitHubAuthManager
 
 PORT = int(os.environ.get("PORT", 8080))
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -25,6 +26,9 @@ class AnalyzerHTTPHandler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(content)
             except Exception as e:
                 self.send_error(500, f"Error loading UI: {e}")
+        elif parsed.path == "/api/auth/status":
+            methods = GitHubAuthManager.detect_available_methods()
+            self._send_json(methods, 200)
         else:
             self.send_error(404, "Page Not Found")
 
@@ -41,15 +45,25 @@ class AnalyzerHTTPHandler(http.server.BaseHTTPRequestHandler):
 
             org = payload.get("org")
             author = payload.get("author")
-            token = payload.get("token") or os.environ.get("GITHUB_TOKEN")
+            token_input = payload.get("token")
+            app_id = payload.get("app_id")
+            private_key = payload.get("private_key")
+            installation_id = payload.get("installation_id")
             include_unlinked = payload.get("include_branches_without_pr", True)
 
             if not org or not author:
                 self._send_json({"error": "Both 'org' and 'author' are required"}, 400)
                 return
 
-            if not token:
-                self._send_json({"error": "GITHUB_TOKEN must be provided in request or backend environment."}, 401)
+            try:
+                token, auth_method, meta = GitHubAuthManager.resolve_token(
+                    token_input=token_input,
+                    app_id=app_id,
+                    private_key_pem=private_key,
+                    installation_id=installation_id,
+                )
+            except Exception as e:
+                self._send_json({"error": f"Authentication Error: {e}"}, 401)
                 return
 
             try:
@@ -57,6 +71,8 @@ class AnalyzerHTTPHandler(http.server.BaseHTTPRequestHandler):
                 result = {
                     "org": org,
                     "author": author,
+                    "auth_method": auth_method,
+                    "auth_details": meta,
                     "pull_requests": analyzer.analyze_pull_requests(author),
                     "issues": analyzer.analyze_issues(author),
                 }
