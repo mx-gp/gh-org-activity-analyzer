@@ -44,6 +44,7 @@ class AnalyzerHTTPHandler(http.server.BaseHTTPRequestHandler):
                 return
 
             org = payload.get("org")
+            user = payload.get("user")
             author = payload.get("author")
             token_input = payload.get("token")
             app_id = payload.get("app_id")
@@ -51,9 +52,13 @@ class AnalyzerHTTPHandler(http.server.BaseHTTPRequestHandler):
             installation_id = payload.get("installation_id")
             include_unlinked = payload.get("include_branches_without_pr", True)
 
-            if not org or not author:
-                self._send_json({"error": "Both 'org' and 'author' are required"}, 400)
+            if not author:
+                self._send_json({"error": "'author' is required"}, 400)
                 return
+
+            # If org is left empty, default scope to individual user / author
+            if not org and not user:
+                user = author
 
             try:
                 token, auth_method, meta = GitHubAuthManager.resolve_token(
@@ -67,9 +72,13 @@ class AnalyzerHTTPHandler(http.server.BaseHTTPRequestHandler):
                 return
 
             try:
-                analyzer = GitHubOrgActivityAnalyzer(token=token, org=org)
+                analyzer = GitHubOrgActivityAnalyzer(token=token, org=org, user=user)
+                scope_type = "Organization" if org else "User"
+                scope_name = org or user
+
                 result = {
-                    "org": org,
+                    "scope_type": scope_type,
+                    "scope_name": scope_name,
                     "author": author,
                     "auth_method": auth_method,
                     "auth_details": meta,

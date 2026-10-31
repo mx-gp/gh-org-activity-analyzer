@@ -13,17 +13,17 @@ GITHUB_GRAPHQL_API = "https://api.github.com/graphql"
 
 
 class GitHubOrgActivityAnalyzer:
-    """Comprehensive analyzer for GitHub organizations (Zero external dependencies).
+    """Comprehensive analyzer for GitHub organizations and individual user accounts:
 
-    Capabilities:
-    - Dynamic organization-wide repo scanning
-    - PR analytics by author with detailed reviewer audit (who, status, timestamps)
-    - Issue analytics by author
-    - Detection of unmerged branches without open PRs and commit analysis by author/user
+    - Pull requests by author & detailed review audit.
+    - Issues by author.
+    - Commits across repositories by author.
+    - Branches without PRs and unmerged commits by author/users.
     """
 
-    def __init__(self, token: str, org: str):
-        self.org = org
+    def __init__(self, token: str, org: Optional[str] = None, user: Optional[str] = None):
+        self.org = org.strip() if org and org.strip() else None
+        self.user = user.strip() if user and user.strip() else None
         self.token = token
         self.headers = {
             "Authorization": f"Bearer {token}",
@@ -31,6 +31,11 @@ class GitHubOrgActivityAnalyzer:
             "User-Agent": "gh-org-activity-analyzer",
             "Content-Type": "application/json",
         }
+
+    @property
+    def target_owner(self) -> str:
+        """Returns the active scope (organization name or personal user handle)."""
+        return self.org or self.user or ""
 
     def _http_request(self, url: str, method: str = "GET", data: Optional[Dict[str, Any]] = None) -> Any:
         encoded_data = json.dumps(data).encode("utf-8") if data else None
@@ -58,11 +63,18 @@ class GitHubOrgActivityAnalyzer:
         return data.get("data", {})
 
     def get_organization_repositories(self, include_forks: bool = False) -> List[Dict[str, Any]]:
-        """Dynamically list all active repositories across the organization."""
+        """Dynamically list all active repositories across the organization or user account."""
         repos = []
         page = 1
         while True:
-            url = f"{GITHUB_REST_API}/orgs/{self.org}/repos?type=all&per_page=100&page={page}"
+            if self.org:
+                url = f"{GITHUB_REST_API}/orgs/{self.org}/repos?type=all&per_page=100&page={page}"
+            elif self.user:
+                url = f"{GITHUB_REST_API}/users/{self.user}/repos?type=all&per_page=100&page={page}"
+            else:
+                # Target authenticated user's own repositories
+                url = f"{GITHUB_REST_API}/user/repos?type=all&per_page=100&page={page}"
+
             items = self._http_request(url)
             if not items or not isinstance(items, list):
                 break
@@ -120,7 +132,8 @@ class GitHubOrgActivityAnalyzer:
           }
         }
         """
-        search_query = f"org:{self.org} type:pr author:{author}"
+        scope_filter = f"org:{self.org}" if self.org else f"user:{self.user}" if self.user else ""
+        search_query = f"{scope_filter} type:pr author:{author}".strip()
         res = self._graphql(query, {"searchQuery": search_query, "limit": limit})
         nodes = res.get("search", {}).get("nodes", [])
 
@@ -176,7 +189,8 @@ class GitHubOrgActivityAnalyzer:
           }
         }
         """
-        search_query = f"org:{self.org} type:issue author:{author}"
+        scope_filter = f"org:{self.org}" if self.org else f"user:{self.user}" if self.user else ""
+        search_query = f"{scope_filter} type:issue author:{author}".strip()
         res = self._graphql(query, {"searchQuery": search_query, "limit": limit})
         nodes = res.get("search", {}).get("nodes", [])
 
@@ -198,8 +212,13 @@ class GitHubOrgActivityAnalyzer:
         self, repo: str, default_branch: str, user_filter: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """Detect branches lacking PRs and audit commits by user/author filter."""
+        owner = self.target_owner
+        if not owner:
+            # Fallback to repo if repo already contains owner/repo, else skip
+            return []
+
         # 1. Fetch active PR head branches for this repo
-        open_prs_url = f"{GITHUB_REST_API}/repos/{self.org}/{repo}/pulls?state=open&per_page=100"
+        open_prs_url = f"{GITHUB_REST_API}/repos/{owner}/{repo}/pulls?state=open&per_page=100"
         open_prs = self._http_request(open_prs_url)
         open_pr_heads = set()
         if isinstance(open_prs, list):
@@ -208,7 +227,7 @@ class GitHubOrgActivityAnalyzer:
                     open_pr_heads.add(pr["head"]["ref"])
 
         # 2. Fetch all branches
-        branches_url = f"{GITHUB_REST_API}/repos/{self.org}/{repo}/branches?per_page=100"
+        branches_url = f"{GITHUB_REST_API}/repos/{owner}/{repo}/branches?per_page=100"
         branches = self._http_request(branches_url)
         if not isinstance(branches, list):
             return []
@@ -220,7 +239,7 @@ class GitHubOrgActivityAnalyzer:
                 continue
 
             # 3. Retrieve commits on this branch
-            commits_url = f"{GITHUB_REST_API}/repos/{self.org}/{repo}/commits?sha={urllib.parse.quote(branch_name)}&per_page=30"
+            commits_url = f"{GITHUB_REST_API}/repos/{owner}/{repo}/commits?sha={urllib.parse.quote(branch_name)}&per_page=30"
             commits = self._http_request(commits_url)
             if not isinstance(commits, list):
                 continue
@@ -255,8 +274,9 @@ class GitHubOrgActivityAnalyzer:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="GitHub Organization Activity, Review & Branch Analyzer")
-    parser.add_argument("--org", required=True, help="Target GitHub Organization")
+    parser = argparse.ArgumentParser(description="GitHub Activity, Review & Branch Analyzer (Org or User Scope)")
+    parser.add_argument("--org", help="Target GitHub Organization (leave empty for personal user account)")
+    parser.add_argument("--user", help="Target GitHub Username/Owner (if analyzing personal/individual user repos)")
     parser.add_argument("--author", required=True, help="Target author/user handle to filter")
     parser.add_argument("--token", help="Direct GitHub Personal Access Token (optional if using gh cli / env / app)")
     parser.add_argument("--app-id", help="GitHub App ID")
@@ -265,6 +285,11 @@ def main():
     parser.add_argument("--include-branches-without-pr", action="store_true", help="Scan unlinked branches without PRs")
     parser.add_argument("--json", action="store_true", help="Output results formatted as JSON")
     args = parser.parse_args()
+
+    target_scope = args.org or args.user
+    if not target_scope:
+        print("Note: Neither --org nor --user was specified. Defaulting scope to author: " + args.author)
+        args.user = args.author
 
     private_pem = None
     if args.private_key_file:
@@ -282,10 +307,14 @@ def main():
         print(f"Authentication Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    analyzer = GitHubOrgActivityAnalyzer(token, args.org)
+    analyzer = GitHubOrgActivityAnalyzer(token=token, org=args.org, user=args.user)
+
+    scope_type = "Organization" if args.org else "User Account"
+    scope_name = args.org or args.user
 
     output = {
-        "org": args.org,
+        "scope_type": scope_type,
+        "scope_name": scope_name,
         "author": args.author,
         "auth_method": auth_method,
         "auth_details": meta,
@@ -316,7 +345,7 @@ def main():
 
     # Formatted Plain Text Output
     print(f"\n========================================================")
-    print(f" Organization Activity Report: {args.org} | Filter: @{args.author}")
+    print(f" Activity Report: [{scope_type}: {scope_name}] | Author: @{args.author}")
     print(f" Active Authentication: {auth_method}")
     print(f"========================================================\n")
 

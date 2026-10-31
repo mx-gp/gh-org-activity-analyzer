@@ -90,11 +90,11 @@
 
     <div class="grid-form">
       <div class="form-group">
-        <label for="orgInput">Organization Name</label>
-        <input type="text" id="orgInput" placeholder="e.g. google, meta, my-org" required>
+        <label for="orgInput">Organization (Optional - leave blank for personal repos)</label>
+        <input type="text" id="orgInput" placeholder="e.g. google, meta (or leave empty)">
       </div>
       <div class="form-group">
-        <label for="authorInput">Author / Member Handle</label>
+        <label for="authorInput">Author / Member Handle *</label>
         <input type="text" id="authorInput" placeholder="e.g. octocat" required>
       </div>
       
@@ -224,8 +224,8 @@
     const author = document.getElementById("authorInput").value.trim();
     const checkUnlinked = document.getElementById("checkUnlinked").checked;
 
-    if (!org || !author) {
-      alert("Please specify both Organization and Author.");
+    if (!author) {
+      alert("Please specify the Author handle.");
       return;
     }
 
@@ -271,7 +271,8 @@
 
   function renderReport(data) {
     document.getElementById("resultsArea").style.display = "block";
-    document.getElementById("reportAuthMethod").innerText = data.auth_method || "Token";
+    const scopeLabel = data.scope_type ? `${data.scope_type}: ${data.scope_name}` : (data.org || data.author);
+    document.getElementById("reportAuthMethod").innerText = `${data.auth_method || "Token"} | Scope: ${scopeLabel}`;
 
     const prs = data.pull_requests || [];
     const issues = data.issues || [];
