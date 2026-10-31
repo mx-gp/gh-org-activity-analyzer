@@ -16,7 +16,7 @@
     "productivity",
     "developer-experience"
   ],
-  "author": "Project Contributors",
+  "author": "Moksh Solanki",
   "license": "MIT",
   "devDependencies": {
     "@playwright/test": "^1.49.0"
