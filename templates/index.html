@@ -38,10 +38,29 @@
     .auth-banner { display: flex; align-items: center; justify-content: space-between; background: rgba(56, 139, 253, 0.1); border: 1px solid rgba(56, 139, 253, 0.4); border-radius: 6px; padding: 10px 16px; margin-bottom: 16px; font-size: 13px; }
     .auth-mode-active { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; color: var(--accent); }
     
-    .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 24px; }
+    .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 20px; }
     .stat-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px; text-align: center; }
     .stat-val { font-size: 26px; font-weight: 700; color: #fff; }
     .stat-lbl { font-size: 11px; color: var(--text-muted); text-transform: uppercase; margin-top: 4px; }
+
+    /* Visual Analytics & Charts Section */
+    .charts-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; margin-bottom: 24px; }
+    @media (max-width: 900px) { .charts-grid { grid-template-columns: 1fr; } }
+    .chart-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 18px; }
+    .chart-title { font-size: 14px; font-weight: 600; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; color: #fff; }
+    .chart-subtitle { font-size: 11px; color: var(--text-muted); font-weight: normal; }
+    .bar-chart-container { display: flex; align-items: flex-end; gap: 8px; height: 160px; padding-top: 20px; border-bottom: 1px solid var(--border); overflow-x: auto; }
+    .bar-column { flex: 1; min-width: 28px; display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end; position: relative; }
+    .bar-pill { width: 100%; max-width: 22px; background: linear-gradient(180deg, var(--accent) 0%, rgba(88, 166, 255, 0.4) 100%); border-radius: 4px 4px 0 0; transition: height 0.3s ease; position: relative; cursor: pointer; }
+    .bar-pill:hover { background: #79b8ff; }
+    .bar-pill .bar-tooltip { display: none; position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); background: #21262d; border: 1px solid var(--border); padding: 4px 8px; border-radius: 4px; font-size: 11px; white-space: nowrap; z-index: 10; color: #fff; }
+    .bar-pill:hover .bar-tooltip { display: block; }
+    .bar-label { font-size: 10px; color: var(--text-muted); margin-top: 6px; text-align: center; }
+
+    /* Doughnut / Breakdown Meter */
+    .breakdown-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font-size: 13px; }
+    .breakdown-bar-bg { width: 100%; height: 8px; background: #010409; border-radius: 4px; overflow: hidden; margin-top: 4px; display: flex; }
+    .breakdown-fill { height: 100%; transition: width 0.3s; }
     
     .tabs { display: flex; gap: 12px; border-bottom: 1px solid var(--border); margin-bottom: 20px; overflow-x: auto; }
     .tab-btn { background: none; border: none; color: var(--text-muted); padding: 10px 16px; font-size: 14px; font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; }
@@ -191,6 +210,7 @@
       </div>
     </div>
 
+    <!-- Executive Stat Cards -->
     <div class="stats-row">
       <div class="stat-card">
         <div class="stat-val" id="statPrs">0</div>
@@ -215,6 +235,31 @@
       <div class="stat-card">
         <div class="stat-val" id="statDays">0</div>
         <div class="stat-lbl">Active Work Days</div>
+      </div>
+    </div>
+
+    <!-- Meaningful Visual Analytics & Charts -->
+    <div class="charts-grid">
+      <!-- 1. Daily Activity Velocity Bar Chart -->
+      <div class="chart-card">
+        <div class="chart-title">
+          <span>📈 Daily Contribution Velocity</span>
+          <span class="chart-subtitle" id="velocitySubtitle">Activities per day</span>
+        </div>
+        <div class="bar-chart-container" id="velocityBarChart">
+          <!-- Dynamically populated bars -->
+        </div>
+      </div>
+
+      <!-- 2. Work Mix & Review Decision Breakdown -->
+      <div class="chart-card">
+        <div class="chart-title">
+          <span>📊 Contribution & Review Mix</span>
+          <span class="chart-subtitle">Distribution by type</span>
+        </div>
+        <div style="margin-top: 10px;" id="mixContainer">
+          <!-- Dynamically populated progress bars -->
+        </div>
       </div>
     </div>
 
@@ -585,6 +630,15 @@
     document.getElementById("statCommits").innerText = totalCommitsCount;
     document.getElementById("statDays").innerText = workDaysCount;
 
+    // Render Charts
+    renderCharts(dailyMap, {
+      prs: filteredPrs.length,
+      reviews: totalReviews,
+      comments: filteredComments.length,
+      commits: totalCommitsCount,
+      issues: filteredIssues.length,
+    });
+
     // 1. Render Daily Tab
     const dailyContainer = document.getElementById("dailyTab");
     const sortedDays = Object.keys(dailyMap).sort((a, b) => b.localeCompare(a));
@@ -751,6 +805,63 @@
         </div>
       `).join("");
     }
+  }
+
+  function renderCharts(dailyMap, counts) {
+    // 1. Render Daily Velocity Bar Chart
+    const velocityContainer = document.getElementById("velocityBarChart");
+    const dayKeys = Object.keys(dailyMap).sort(); // Chronological order
+    const maxVal = dayKeys.reduce((max, d) => Math.max(max, dailyMap[d].length), 1);
+
+    if (dayKeys.length === 0) {
+      velocityContainer.innerHTML = "<div style='color:var(--text-muted);font-size:12px;width:100%;text-align:center;padding:40px 0;'>No activity recorded in this period</div>";
+    } else {
+      velocityContainer.innerHTML = dayKeys.map(d => {
+        const count = dailyMap[d].length;
+        const heightPct = Math.max(10, Math.round((count / maxVal) * 100));
+        const shortDate = d.substring(5); // 'MM-DD'
+        return `
+          <div class="bar-column">
+            <div class="bar-pill" style="height: ${heightPct}%;">
+              <div class="bar-tooltip"><strong>${d}</strong><br>${count} activities</div>
+            </div>
+            <div class="bar-label">${shortDate}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // 2. Render Work Mix Distribution
+    const mixContainer = document.getElementById("mixContainer");
+    const totalAll = counts.prs + counts.reviews + counts.comments + counts.commits + counts.issues;
+
+    if (totalAll === 0) {
+      mixContainer.innerHTML = "<div style='color:var(--text-muted);font-size:12px;text-align:center;padding:20px 0;'>No activity recorded</div>";
+      return;
+    }
+
+    const items = [
+      { label: "Branch Commits", count: counts.commits, color: "var(--accent)" },
+      { label: "Pull Requests", count: counts.prs, color: "var(--purple)" },
+      { label: "Discussion Comments", count: counts.comments, color: "var(--cyan)" },
+      { label: "Reviews Audited", count: counts.reviews, color: "var(--success-text)" },
+      { label: "Issues", count: counts.issues, color: "var(--warning)" },
+    ].filter(i => i.count > 0);
+
+    mixContainer.innerHTML = items.map(it => {
+      const pct = Math.round((it.count / totalAll) * 100);
+      return `
+        <div style="margin-bottom: 12px;">
+          <div class="breakdown-row">
+            <span>${it.label}</span>
+            <span style="font-weight: 600;">${it.count} (${pct}%)</span>
+          </div>
+          <div class="breakdown-bar-bg">
+            <div class="breakdown-fill" style="width: ${pct}%; background: ${it.color};"></div>
+          </div>
+        </div>
+      `;
+    }).join('');
   }
 
   function switchTab(tab) {
