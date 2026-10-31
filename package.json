@@ -1,0 +1,24 @@
+{
+  "name": "gh-org-activity-analyzer",
+  "version": "1.0.0",
+  "description": "Dynamic GitHub Organization & Repository Activity, PR Review, and Branch Lifecycle Analyzer",
+  "scripts": {
+    "test:unit": "python3 test_analyzer.py && python3 test_auth.py",
+    "test:e2e": "playwright test",
+    "test": "npm run test:unit && npm run test:e2e"
+  },
+  "keywords": [
+    "github",
+    "pull-requests",
+    "code-review",
+    "activity-analyzer",
+    "git",
+    "productivity",
+    "developer-experience"
+  ],
+  "author": "Moksh Solanki",
+  "license": "MIT",
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}
