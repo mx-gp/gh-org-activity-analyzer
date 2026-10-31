@@ -1,68 +1,93 @@
-# GitHub Organization Activity & PR/Review Analyzer
+# GitHub Activity & PR Review Analyzer 🚀
 
-A dynamic, zero-dependency Python tool to audit developer activity across all repositories in a GitHub Organization.
+[![CI & Build Verification](https://github.com/octocat/gh-org-activity-analyzer/actions/workflows/ci.yml/badge.svg)](https://github.com/octocat/gh-org-activity-analyzer/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![Python: 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![Playwright: Enabled](https://img.shields.io/badge/Playwright-E2E%20Tested-green.svg)](https://playwright.dev/)
 
-## Key Features
+An open-source, zero-external-dependency developer telemetry and code review audit platform for **GitHub Organizations**, **Individual User Accounts**, and **Single Repositories**.
 
-- **Dynamic Organization Scope**: Scans all active repositories across an entire GitHub organization without requiring manual repository lists.
-- **Dynamic PR Author & Review Audit**: Evaluates PRs authored by targeted users and provides breakdown of reviewers, review decisions (`APPROVED`, `CHANGES_REQUESTED`, `COMMENTED`), submitted timestamps, and pending reviewers.
-- **Branches Without PRs (Orphan/Unmerged Branches)**: Discovers branches across all org repos that do not have active PRs and isolates commits authored by targeted team members.
-- **Issue Audit**: Fetches issues opened by the author with comment counts and current states.
-- **Zero Third-Party Dependencies**: Built exclusively using standard Python 3 libraries (`urllib`, `json`, `argparse`, `unittest`).
+---
 
-## Supported Authentication Methods
+## ✨ Features
 
-The analyzer dynamically supports 3 primary authentication modes and clearly shows you which one is in use:
+- **🎯 Flexible Scope**:
+  - Full GitHub URL: `https://github.com/octocat/my-repo`
+  - `owner/repo`: `octocat/my-repo`
+  - Short repo name: `my-repo` (auto-scoped to your logged-in user)
+  - Entire Organization or User: `google`, `meta`, `octocat`
+  - All user repositories across your account (when left blank).
+- **📅 Daily Work Breakdown**:
+  - Chronological timeline grouping pull requests, reviews, branch commits, and issues by date.
+- **⚡ Dynamic Date Range Filters**:
+  - Presets for **Today**, **Past 7 Days**, **Past 30 Days**, or custom **From / To** date pickers.
+- **🧐 Deep Pull Request & Review Audit**:
+  - Color-coded review badges (`APPROVED`, `CHANGES_REQUESTED`, `COMMENTED`), reviewer handles, timestamps, and diff additions/deletions.
+- **🌿 Branch & PR Lifecycle Telemetry**:
+  - Detects true orphan branches (`Never had a PR`), merged stale branches (`PR Merged, branch not deleted`), closed unmerged work, and active PRs.
+- **🔐 Multi-Source Seamless Authentication**:
+  - **Auto-Detect**: Seamless GitHub CLI session (`gh auth token`) or `GITHUB_TOKEN` environment variable.
+  - **GitHub App**: Enterprise-grade App ID + Installation ID + `.pem` private key authentication.
+  - **Personal Access Token**: Interactive web form entry.
+- **⚡ Zero External Backend Dependencies**:
+  - Built with pure standard Python 3 (`urllib`, `json`, `argparse`, `unittest`).
 
-1. **⚡ Automatic GitHub CLI Detection (`gh auth`)**:
-   - If you have GitHub CLI installed and logged in (`gh auth login`), the analyzer automatically detects and uses your local session.
-2. **🏢 GitHub App (Enterprise / Organization Friendly)**:
-   - Provide an **App ID**, **Installation ID**, and **Private Key (.pem)**.
-   - Generates RS256 JWTs and exchanges them for temporary installation tokens on the fly without external libraries.
-3. **🔑 Personal Access Token (PAT)**:
-   - Either through `export GITHUB_TOKEN="ghp_..."` or entered into the UI/CLI.
+---
 
-## Web UI Frontend
+## 🚀 Quick Start
 
-A lightweight, GitHub dark-themed dashboard is included so you can review activities and reviews interactively from your browser without installing Node.js or external dependencies.
+### Option 1: Web Dashboard (Interactive Frontend)
 
-### Launching the Frontend
 ```bash
+git clone https://github.com/octocat/gh-org-activity-analyzer.git
+cd gh-org-activity-analyzer
+
+# Start the web server (uses Python 3 builtin http.server)
 python3 server.py 8080
 ```
 Open **[http://localhost:8080](http://localhost:8080)** in your browser.
 
-- Shows a **Live Authentication Banner** at the top indicating whether your local GitHub CLI or Environment token was auto-detected.
-- Lets you switch seamlessly between **Auto-Detect**, **Personal Access Token**, and **GitHub App** credentials.
-- After running analysis, highlights the **exact authentication method** used to query GitHub.
+---
 
-Features on the UI:
-- **Interactive Form**: Enter organization, author handle, and optional token.
-- **Summary Metric Cards**: Instant count of PRs, review submissions, issues, and unlinked branches.
-- **Pull Requests & Review Telemetry Tab**: Color-coded review pills (`APPROVED`, `CHANGES_REQUESTED`, `COMMENTED`), dates, diff stats (+/- lines), and pending reviewer requests.
-- **Branches Without PRs Tab**: Lists orphan feature branches with commit SHAs, timestamps, and commit messages authored by the member.
-- **Issues Tab**: Full history of issues and comment engagement.
+### Option 2: CLI Usage
 
-## CLI Usage
-
-### 1. Set GitHub Token
 ```bash
-export GITHUB_TOKEN="ghp_yourPersonalAccessTokenHere"
-```
+# Analyze a specific repository
+python3 analyzer.py --target "https://github.com/octocat/my-repo"
 
-### 2. Run Analysis
-```bash
-# Analyze PRs and Issues for a specific author in an organization
-python3 analyzer.py --org <ORG_NAME> --author <GITHUB_USERNAME>
+# Filter by a specific author
+python3 analyzer.py --target "my-repo" --author "octocat"
 
-# Include scanning of branches without PRs across all repositories
-python3 analyzer.py --org <ORG_NAME> --author <GITHUB_USERNAME> --include-branches-without-pr
+# Analyze an entire organization
+python3 analyzer.py --target "my-org" --author "octocat"
 
 # Export results as JSON
-python3 analyzer.py --org <ORG_NAME> --author <GITHUB_USERNAME> --include-branches-without-pr --json
+python3 analyzer.py --target "my-repo" --json
 ```
 
-## Running Tests
+---
+
+## 🧪 Testing
+
+### 1. Python Unit Tests (Zero dependencies)
 ```bash
 python3 test_analyzer.py
+python3 test_auth.py
 ```
+
+### 2. Playwright End-to-End Tests
+```bash
+npm install
+npx playwright install --with-deps chromium
+npm run test:e2e
+```
+
+---
+
+## 🤝 Community & Contributing
+
+Contributions are welcome! Please check our [Contributing Guide](CONTRIBUTING.md) and feel free to open issues or submit Pull Requests.
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE).
