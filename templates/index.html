@@ -16,17 +16,18 @@
       --success-text: #3fb950;
       --warning: #d29922;
       --danger: #f85149;
+      --purple: #bc8cff;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
     body { background: var(--bg); color: var(--text); padding: 24px; line-height: 1.5; }
-    .container { max-width: 1200px; margin: 0 auto; }
+    .container { max-width: 1240px; margin: 0 auto; }
     header { margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
     h1 { font-size: 24px; font-weight: 600; }
     .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 20px; }
     .grid-form { display: grid; grid-template-columns: 2fr 1.2fr auto; gap: 16px; align-items: flex-end; }
     @media (max-width: 800px) { .grid-form { grid-template-columns: 1fr; } }
     .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text-muted); }
-    .form-group input, .form-group textarea { width: 100%; padding: 10px 12px; background: #010409; border: 1px solid var(--border); border-radius: 6px; color: #fff; font-size: 14px; }
+    .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 10px 12px; background: #010409; border: 1px solid var(--border); border-radius: 6px; color: #fff; font-size: 14px; }
     .form-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
     .checkbox-group { display: flex; align-items: center; gap: 8px; font-size: 14px; margin-top: 14px; }
     button { background: var(--success); color: #fff; border: none; padding: 10px 24px; font-weight: 600; border-radius: 6px; cursor: pointer; transition: 0.2s; font-size: 14px; height: 42px; }
@@ -41,8 +42,8 @@
     .stat-val { font-size: 28px; font-weight: 700; color: #fff; }
     .stat-lbl { font-size: 12px; color: var(--text-muted); text-transform: uppercase; margin-top: 4px; }
     
-    .tabs { display: flex; gap: 12px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
-    .tab-btn { background: none; border: none; color: var(--text-muted); padding: 10px 16px; font-size: 14px; font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; }
+    .tabs { display: flex; gap: 12px; border-bottom: 1px solid var(--border); margin-bottom: 20px; overflow-x: auto; }
+    .tab-btn { background: none; border: none; color: var(--text-muted); padding: 10px 16px; font-size: 14px; font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; }
     .tab-btn.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
     
     .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; }
@@ -52,6 +53,7 @@
     .badge-approved { background: rgba(63, 185, 80, 0.2); color: var(--success-text); }
     .badge-changes { background: rgba(248, 81, 73, 0.2); color: var(--danger); }
     .badge-comment { background: rgba(210, 153, 34, 0.2); color: var(--warning); }
+    .badge-type { background: rgba(110, 118, 129, 0.25); color: #e6edf3; font-weight: 500; }
     
     .list-item { background: #0d1117; border: 1px solid var(--border); border-radius: 6px; padding: 14px 18px; margin-bottom: 12px; }
     .list-title { display: flex; justify-content: space-between; align-items: baseline; font-weight: 600; font-size: 16px; margin-bottom: 6px; flex-wrap: wrap; gap: 8px; }
@@ -65,6 +67,27 @@
     .auth-toggle-group { display: flex; gap: 10px; margin-bottom: 14px; }
     .auth-chip { background: #010409; border: 1px solid var(--border); color: var(--text-muted); padding: 6px 12px; border-radius: 16px; font-size: 12px; cursor: pointer; }
     .auth-chip.selected { border-color: var(--accent); color: var(--accent); font-weight: 600; background: rgba(88, 166, 255, 0.1); }
+
+    /* Date Filter Toolbar */
+    .filter-bar { background: #161b22; border: 1px solid var(--border); border-radius: 6px; padding: 12px 16px; margin-bottom: 20px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+    .filter-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    .filter-group label { font-size: 13px; color: var(--text-muted); font-weight: 500; }
+    .filter-group input[type="date"] { background: #010409; border: 1px solid var(--border); color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 13px; }
+    .preset-btn { background: #21262d; border: 1px solid var(--border); color: var(--text); padding: 6px 12px; border-radius: 6px; font-size: 12px; cursor: pointer; }
+    .preset-btn:hover { background: #30363d; }
+    .preset-btn.active { background: rgba(88, 166, 255, 0.15); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+
+    /* Daily Work Breakdown Timeline */
+    .day-section { margin-bottom: 24px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--card-bg); }
+    .day-header { background: #21262d; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
+    .day-title { font-size: 15px; font-weight: 600; color: #fff; display: flex; align-items: center; gap: 10px; }
+    .day-count { font-size: 12px; background: rgba(56, 139, 253, 0.2); color: var(--accent); padding: 2px 8px; border-radius: 12px; font-weight: 600; }
+    .day-body { padding: 12px 18px; }
+    .timeline-item { display: grid; grid-template-columns: 80px 24px 1fr; gap: 12px; padding: 10px 0; border-bottom: 1px solid rgba(48, 54, 61, 0.6); align-items: baseline; }
+    .timeline-item:last-child { border-bottom: none; }
+    .timeline-time { font-size: 12px; color: var(--text-muted); font-family: monospace; }
+    .timeline-icon { font-size: 15px; text-align: center; }
+    .timeline-content { font-size: 13px; }
   </style>
 </head>
 <body>
@@ -143,10 +166,28 @@
 
   <div id="resultsArea" style="display: none;">
     <!-- Active Run Scope Badge -->
-    <div style="margin-bottom: 16px; font-size: 13px; color: var(--text-muted); background: #161b22; padding: 10px 14px; border-radius: 6px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+    <div style="margin-bottom: 16px; font-size: 13px; color: var(--text-muted); background: #161b22; padding: 10px 14px; border-radius: 6px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
       <div>🎯 Scope: <strong style="color: #fff;" id="reportScope"></strong></div>
       <div>👤 Author Filter: <strong style="color: var(--accent);" id="reportAuthor"></strong></div>
       <div>🔐 Auth: <strong style="color: #fff;" id="reportAuthMethod"></strong></div>
+    </div>
+
+    <!-- Dynamic Date Range Filter Toolbar -->
+    <div class="filter-bar">
+      <div class="filter-group">
+        <label>📅 Filter by Date:</label>
+        <button class="preset-btn active" onclick="setDatePreset('all')">All Time</button>
+        <button class="preset-btn" onclick="setDatePreset('today')">Today</button>
+        <button class="preset-btn" onclick="setDatePreset('7d')">Past 7 Days</button>
+        <button class="preset-btn" onclick="setDatePreset('30d')">Past 30 Days</button>
+      </div>
+      <div class="filter-group">
+        <label for="startDate">From:</label>
+        <input type="date" id="startDate" onchange="applyCustomDateFilter()">
+        <label for="endDate">To:</label>
+        <input type="date" id="endDate" onchange="applyCustomDateFilter()">
+        <button class="preset-btn" onclick="clearDateFilter()">Reset</button>
+      </div>
     </div>
 
     <div class="stats-row">
@@ -159,22 +200,24 @@
         <div class="stat-lbl">Reviews Audited</div>
       </div>
       <div class="stat-card">
-        <div class="stat-val" id="statIssues">0</div>
-        <div class="stat-lbl">Issues Found</div>
+        <div class="stat-val" id="statCommits">0</div>
+        <div class="stat-lbl">Branch Commits</div>
       </div>
       <div class="stat-card">
-        <div class="stat-val" id="statOrphans">0</div>
-        <div class="stat-lbl">Non-Default Branches</div>
+        <div class="stat-val" id="statDays">0</div>
+        <div class="stat-lbl">Active Work Days</div>
       </div>
     </div>
 
     <div class="tabs">
-      <button class="tab-btn active" onclick="switchTab('prs')">Pull Requests & Review Telemetry</button>
+      <button class="tab-btn active" onclick="switchTab('daily')">📅 Daily Work Breakdown</button>
+      <button class="tab-btn" onclick="switchTab('prs')">Pull Requests & Review Telemetry</button>
       <button class="tab-btn" onclick="switchTab('orphans')">Branch & PR Lifecycle Audit</button>
       <button class="tab-btn" onclick="switchTab('issues')">Issues</button>
     </div>
 
-    <div id="prsTab" class="tab-content"></div>
+    <div id="dailyTab" class="tab-content"></div>
+    <div id="prsTab" class="tab-content" style="display: none;"></div>
     <div id="orphansTab" class="tab-content" style="display: none;"></div>
     <div id="issuesTab" class="tab-content" style="display: none;"></div>
   </div>
@@ -183,6 +226,9 @@
 <script>
   let currentAuthMode = 'auto';
   let detectedUser = '';
+  let rawReportData = null;
+  let activeStartDate = null;
+  let activeEndDate = null;
 
   window.addEventListener('DOMContentLoaded', async () => {
     try {
@@ -193,7 +239,6 @@
 
       if (status.detected_user) {
         detectedUser = status.detected_user;
-        // Suggest current user in placeholder
         document.getElementById("authorInput").placeholder = `e.g. ${detectedUser} (or leave empty for all)`;
       }
 
@@ -271,7 +316,8 @@
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || "Analysis failed");
 
-      renderReport(data);
+      rawReportData = data;
+      renderReportWithFilters();
     } catch (err) {
       alert(err.message);
     } finally {
@@ -280,30 +326,246 @@
     }
   }
 
-  function renderReport(data) {
+  function setDatePreset(preset) {
+    document.querySelectorAll(".preset-btn").forEach(b => b.classList.remove("active"));
+    event.target.classList.add("active");
+
+    const now = new Date();
+    const startInput = document.getElementById("startDate");
+    const endInput = document.getElementById("endDate");
+
+    if (preset === 'all') {
+      activeStartDate = null;
+      activeEndDate = null;
+      startInput.value = '';
+      endInput.value = '';
+    } else if (preset === 'today') {
+      const todayStr = now.toISOString().split('T')[0];
+      activeStartDate = new Date(todayStr + "T00:00:00");
+      activeEndDate = new Date(todayStr + "T23:59:59");
+      startInput.value = todayStr;
+      endInput.value = todayStr;
+    } else if (preset === '7d') {
+      const past = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      activeStartDate = new Date(past.toISOString().split('T')[0] + "T00:00:00");
+      activeEndDate = now;
+      startInput.value = past.toISOString().split('T')[0];
+      endInput.value = now.toISOString().split('T')[0];
+    } else if (preset === '30d') {
+      const past = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+      activeStartDate = new Date(past.toISOString().split('T')[0] + "T00:00:00");
+      activeEndDate = now;
+      startInput.value = past.toISOString().split('T')[0];
+      endInput.value = now.toISOString().split('T')[0];
+    }
+    renderReportWithFilters();
+  }
+
+  function applyCustomDateFilter() {
+    document.querySelectorAll(".preset-btn").forEach(b => b.classList.remove("active"));
+    const startVal = document.getElementById("startDate").value;
+    const endVal = document.getElementById("endDate").value;
+
+    activeStartDate = startVal ? new Date(startVal + "T00:00:00") : null;
+    activeEndDate = endVal ? new Date(endVal + "T23:59:59") : null;
+    renderReportWithFilters();
+  }
+
+  function clearDateFilter() {
+    setDatePreset('all');
+  }
+
+  function isWithinDateRange(dateStr) {
+    if (!dateStr) return false;
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return false;
+    if (activeStartDate && d < activeStartDate) return false;
+    if (activeEndDate && d > activeEndDate) return false;
+    return true;
+  }
+
+  function renderReportWithFilters() {
+    if (!rawReportData) return;
     document.getElementById("resultsArea").style.display = "block";
-    document.getElementById("reportScope").innerText = data.scope || "All";
-    document.getElementById("reportAuthor").innerText = data.author_filter === "ALL" ? "All Authors" : `@${data.author_filter}`;
-    document.getElementById("reportAuthMethod").innerText = data.auth_method || "Active Session";
+    document.getElementById("reportScope").innerText = rawReportData.scope || "All";
+    document.getElementById("reportAuthor").innerText = rawReportData.author_filter === "ALL" ? "All Authors" : `@${rawReportData.author_filter}`;
+    document.getElementById("reportAuthMethod").innerText = rawReportData.auth_method || "Active Session";
 
-    const prs = data.pull_requests || [];
-    const issues = data.issues || [];
-    const orphans = data.branches_without_pr || [];
+    // 1. Filter PRs
+    const filteredPrs = (rawReportData.pull_requests || []).filter(pr => {
+      if (!activeStartDate && !activeEndDate) return true;
+      return isWithinDateRange(pr.created_at) || (pr.merged_at && isWithinDateRange(pr.merged_at));
+    });
 
+    // 2. Filter Issues
+    const filteredIssues = (rawReportData.issues || []).filter(issue => {
+      if (!activeStartDate && !activeEndDate) return true;
+      return isWithinDateRange(issue.created_at);
+    });
+
+    // 3. Filter Branch Commits
+    let totalCommitsCount = 0;
+    const filteredBranches = (rawReportData.branches_without_pr || []).map(b => {
+      const matchingCommits = (b.commits || []).filter(c => {
+        if (!activeStartDate && !activeEndDate) return true;
+        return isWithinDateRange(c.date);
+      });
+      totalCommitsCount += matchingCommits.length;
+      return {
+        ...b,
+        matched_commits_count: matchingCommits.length,
+        commits: matchingCommits
+      };
+    }).filter(b => b.commits.length > 0);
+
+    // 4. Construct Unified Daily Timeline
+    const dailyMap = {}; // 'YYYY-MM-DD': []
+
+    function addToDaily(dateStr, item) {
+      if (!dateStr) return;
+      const key = dateStr.split('T')[0];
+      if (!dailyMap[key]) dailyMap[key] = [];
+      dailyMap[key].push(item);
+    }
+
+    filteredPrs.forEach(pr => {
+      addToDaily(pr.created_at, {
+        type: 'PR_CREATED',
+        icon: '🔀',
+        badge: 'PR Created',
+        badgeClass: 'badge-open',
+        time: pr.created_at.split('T')[1]?.substring(0, 5) || '',
+        title: `#${pr.number} ${pr.title}`,
+        url: pr.url,
+        repo: pr.repo,
+        author: pr.author,
+        details: `Diff: +${pr.lines_added} / -${pr.lines_deleted} lines across ${pr.changed_files} files`
+      });
+
+      if (pr.merged_at && isWithinDateRange(pr.merged_at)) {
+        addToDaily(pr.merged_at, {
+          type: 'PR_MERGED',
+          icon: '🟣',
+          badge: 'PR Merged',
+          badgeClass: 'badge-merged',
+          time: pr.merged_at.split('T')[1]?.substring(0, 5) || '',
+          title: `#${pr.number} ${pr.title}`,
+          url: pr.url,
+          repo: pr.repo,
+          author: pr.author,
+          details: `Successfully merged into default branch`
+        });
+      }
+
+      // Reviews
+      (pr.reviews || []).forEach(r => {
+        if (isWithinDateRange(r.submitted_at)) {
+          const revClass = r.state === 'APPROVED' ? 'badge-approved' : r.state === 'CHANGES_REQUESTED' ? 'badge-changes' : 'badge-comment';
+          addToDaily(r.submitted_at, {
+            type: 'REVIEW',
+            icon: '🧐',
+            badge: `Review: ${r.state}`,
+            badgeClass: revClass,
+            time: r.submitted_at ? r.submitted_at.split('T')[1]?.substring(0, 5) : '',
+            title: `Review on #${pr.number} ${pr.title}`,
+            url: pr.url,
+            repo: pr.repo,
+            author: r.reviewer,
+            details: `Review decision: ${r.state}`
+          });
+        }
+      });
+    });
+
+    filteredBranches.forEach(b => {
+      b.commits.forEach(c => {
+        addToDaily(c.date, {
+          type: 'COMMIT',
+          icon: '💻',
+          badge: 'Commit',
+          badgeClass: 'badge-type',
+          time: c.date ? c.date.split('T')[1]?.substring(0, 5) : '',
+          title: `[${c.sha}] ${c.message}`,
+          repo: `${b.repo} (${b.branch})`,
+          author: c.author,
+          details: `Branch: ${b.branch}`
+        });
+      });
+    });
+
+    filteredIssues.forEach(i => {
+      addToDaily(i.created_at, {
+        type: 'ISSUE',
+        icon: '⚠️',
+        badge: 'Issue Opened',
+        badgeClass: 'badge-open',
+        time: i.created_at.split('T')[1]?.substring(0, 5) || '',
+        title: `#${i.number} ${i.title}`,
+        url: i.url,
+        repo: i.repo,
+        author: i.author,
+        details: `Comments: ${i.comments_count}`
+      });
+    });
+
+    // Render Stats
     let totalReviews = 0;
-    prs.forEach(p => { totalReviews += (p.reviews || []).length; });
+    filteredPrs.forEach(p => { totalReviews += (p.reviews || []).length; });
+    const workDaysCount = Object.keys(dailyMap).length;
 
-    document.getElementById("statPrs").innerText = prs.length;
+    document.getElementById("statPrs").innerText = filteredPrs.length;
     document.getElementById("statApprovals").innerText = totalReviews;
-    document.getElementById("statIssues").innerText = issues.length;
-    document.getElementById("statOrphans").innerText = orphans.length;
+    document.getElementById("statCommits").innerText = totalCommitsCount;
+    document.getElementById("statDays").innerText = workDaysCount;
+
+    // Render Daily Work Breakdown Tab
+    const dailyContainer = document.getElementById("dailyTab");
+    const sortedDays = Object.keys(dailyMap).sort((a, b) => b.localeCompare(a)); // Newest first
+
+    if (sortedDays.length === 0) {
+      dailyContainer.innerHTML = "<div class='card'>No activity found in the selected date range.</div>";
+    } else {
+      dailyContainer.innerHTML = sortedDays.map(dayStr => {
+        const items = dailyMap[dayStr].sort((a, b) => (b.time || '').localeCompare(a.time || ''));
+        const dateObj = new Date(dayStr + "T00:00:00");
+        const formattedDate = dateObj.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' });
+
+        return `
+          <div class="day-section">
+            <div class="day-header">
+              <div class="day-title">
+                <span>📅 ${formattedDate}</span>
+                <span class="day-count">${items.length} activities</span>
+              </div>
+            </div>
+            <div class="day-body">
+              ${items.map(it => `
+                <div class="timeline-item">
+                  <div class="timeline-time">${it.time || 'All-day'}</div>
+                  <div class="timeline-icon">${it.icon}</div>
+                  <div class="timeline-content">
+                    <div style="display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;">
+                      <span class="badge ${it.badgeClass}">${it.badge}</span>
+                      <span class="code-tag">${it.repo}</span>
+                      ${it.url ? `<a href="${it.url}" target="_blank" style="color:var(--accent);text-decoration:none;font-weight:600;">${it.title}</a>` : `<strong>${it.title}</strong>`}
+                      <span style="color:var(--text-muted);font-size:12px;">by @${it.author}</span>
+                    </div>
+                    ${it.details ? `<div style="font-size:12px;color:var(--text-muted);margin-top:3px;">${it.details}</div>` : ''}
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
 
     // Render PRs
     const prsContainer = document.getElementById("prsTab");
-    if (prs.length === 0) {
-      prsContainer.innerHTML = "<div class='card'>No pull requests found for the selected target and author.</div>";
+    if (filteredPrs.length === 0) {
+      prsContainer.innerHTML = "<div class='card'>No pull requests found for the selected date range.</div>";
     } else {
-      prsContainer.innerHTML = prs.map(pr => {
+      prsContainer.innerHTML = filteredPrs.map(pr => {
         const badgeClass = pr.state === "OPEN" ? "badge-open" : pr.state === "MERGED" ? "badge-merged" : "badge-closed";
         const reviewsHtml = (pr.reviews && pr.reviews.length > 0)
           ? pr.reviews.map(r => {
@@ -327,7 +589,7 @@
               <span class="badge ${badgeClass}">${pr.state}</span>
             </div>
             <div style="font-size: 13px; color: var(--text-muted);">
-              Diff: +${pr.lines_added} / -${pr.lines_deleted} lines across ${pr.changed_files} files | Created: ${new Date(pr.created_at).toLocaleDateString()}
+              Diff: +${pr.lines_added} / -${pr.lines_deleted} lines across ${pr.changed_files} files | Created: ${new Date(pr.created_at).toLocaleDateString()} ${pr.merged_at ? `| Merged: ${new Date(pr.merged_at).toLocaleDateString()}` : ''}
             </div>
             <div class="reviewers-list">
               <strong>Review Audit:</strong>
@@ -341,10 +603,10 @@
 
     // Render Branches
     const orphansContainer = document.getElementById("orphansTab");
-    if (orphans.length === 0) {
-      orphansContainer.innerHTML = "<div class='card'>No non-default branches found for this repository.</div>";
+    if (filteredBranches.length === 0) {
+      orphansContainer.innerHTML = "<div class='card'>No non-default branches with commits in the selected date range.</div>";
     } else {
-      orphansContainer.innerHTML = orphans.map(o => {
+      orphansContainer.innerHTML = filteredBranches.map(o => {
         let statusBadge = "badge-comment";
         if (o.pr_status === "NO_PR_EVER") statusBadge = "badge-changes";
         else if (o.pr_status === "MERGED_STALE") statusBadge = "badge-merged";
@@ -365,12 +627,12 @@
               <span class="badge ${statusBadge}">${o.status_label || o.pr_status}</span>
             </div>
             <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 6px;">
-              ${o.matched_commits_count} commits on this branch:
+              ${o.matched_commits_count} commits on this branch in selected period:
             </div>
             <div style="margin-top: 6px; background: #161b22; padding: 10px; border-radius: 6px;">
               ${o.commits.map(c => `
                 <div style="font-size:12px; margin-top:4px; color:var(--text-muted);">
-                  <span class="code-tag">${c.sha}</span> <strong>@${c.author}</strong> - ${c.message} <span style="font-size:11px;">(${c.date})</span>
+                  <span class="code-tag">${c.sha}</span> <strong>@${c.author}</strong> - ${c.message} <span style="font-size:11px;">(${new Date(c.date).toLocaleDateString()})</span>
                 </div>
               `).join("")}
             </div>
@@ -381,10 +643,10 @@
 
     // Render Issues
     const issuesContainer = document.getElementById("issuesTab");
-    if (issues.length === 0) {
-      issuesContainer.innerHTML = "<div class='card'>No issues found for this selection.</div>";
+    if (filteredIssues.length === 0) {
+      issuesContainer.innerHTML = "<div class='card'>No issues found for this selection in the selected date range.</div>";
     } else {
-      issuesContainer.innerHTML = issues.map(i => `
+      issuesContainer.innerHTML = filteredIssues.map(i => `
         <div class="list-item">
           <div class="list-title">
             <div>
@@ -406,14 +668,17 @@
     document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
     document.querySelectorAll(".tab-content").forEach(c => c.style.display = "none");
 
-    if (tab === "prs") {
+    if (tab === "daily") {
       document.querySelectorAll(".tab-btn")[0].classList.add("active");
+      document.getElementById("dailyTab").style.display = "block";
+    } else if (tab === "prs") {
+      document.querySelectorAll(".tab-btn")[1].classList.add("active");
       document.getElementById("prsTab").style.display = "block";
     } else if (tab === "orphans") {
-      document.querySelectorAll(".tab-btn")[1].classList.add("active");
+      document.querySelectorAll(".tab-btn")[2].classList.add("active");
       document.getElementById("orphansTab").style.display = "block";
     } else if (tab === "issues") {
-      document.querySelectorAll(".tab-btn")[2].classList.add("active");
+      document.querySelectorAll(".tab-btn")[3].classList.add("active");
       document.getElementById("issuesTab").style.display = "block";
     }
   }
