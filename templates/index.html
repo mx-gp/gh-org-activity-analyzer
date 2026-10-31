@@ -25,18 +25,24 @@
     .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 20px; }
     .grid-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; align-items: flex-end; }
     .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text-muted); }
-    .form-group input { width: 100%; padding: 10px 12px; background: #010409; border: 1px solid var(--border); border-radius: 6px; color: #fff; font-size: 14px; }
+    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px 12px; background: #010409; border: 1px solid var(--border); border-radius: 6px; color: #fff; font-size: 14px; }
     .checkbox-group { display: flex; align-items: center; gap: 8px; font-size: 14px; margin-top: 10px; }
     button { background: var(--success); color: #fff; border: none; padding: 10px 20px; font-weight: 600; border-radius: 6px; cursor: pointer; transition: 0.2s; font-size: 14px; }
     button:hover { background: #2ea043; }
     button:disabled { opacity: 0.6; cursor: not-allowed; }
+    
+    .auth-banner { display: flex; align-items: center; justify-content: space-between; background: rgba(56, 139, 253, 0.1); border: 1px solid rgba(56, 139, 253, 0.4); border-radius: 6px; padding: 10px 16px; margin-bottom: 16px; font-size: 13px; }
+    .auth-mode-active { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; color: var(--accent); }
+    
     .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
     .stat-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px; text-align: center; }
     .stat-val { font-size: 28px; font-weight: 700; color: #fff; }
     .stat-lbl { font-size: 12px; color: var(--text-muted); text-transform: uppercase; margin-top: 4px; }
+    
     .tabs { display: flex; gap: 12px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
     .tab-btn { background: none; border: none; color: var(--text-muted); padding: 10px 16px; font-size: 14px; font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; }
     .tab-btn.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
+    
     .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; }
     .badge-open { background: rgba(63, 185, 80, 0.15); color: var(--success-text); border: 1px solid rgba(63, 185, 80, 0.4); }
     .badge-merged { background: rgba(163, 113, 247, 0.15); color: #bc8cff; border: 1px solid rgba(163, 113, 247, 0.4); }
@@ -44,6 +50,7 @@
     .badge-approved { background: rgba(63, 185, 80, 0.2); color: var(--success-text); }
     .badge-changes { background: rgba(248, 81, 73, 0.2); color: var(--danger); }
     .badge-comment { background: rgba(210, 153, 34, 0.2); color: var(--warning); }
+    
     .list-item { background: #0d1117; border: 1px solid var(--border); border-radius: 6px; padding: 14px 18px; margin-bottom: 12px; }
     .list-title { display: flex; justify-content: space-between; align-items: baseline; font-weight: 600; font-size: 16px; margin-bottom: 6px; }
     .list-title a { color: var(--accent); text-decoration: none; }
@@ -52,6 +59,10 @@
     .reviewer-pill { display: inline-flex; align-items: center; gap: 6px; margin-right: 12px; margin-top: 4px; }
     .code-tag { background: rgba(110, 118, 129, 0.4); padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 12px; }
     .loader { display: none; text-align: center; padding: 30px; font-size: 16px; color: var(--accent); }
+    
+    .auth-toggle-group { display: flex; gap: 10px; margin-bottom: 14px; }
+    .auth-chip { background: #010409; border: 1px solid var(--border); color: var(--text-muted); padding: 6px 12px; border-radius: 16px; font-size: 12px; cursor: pointer; }
+    .auth-chip.selected { border-color: var(--accent); color: var(--accent); font-weight: 600; background: rgba(88, 166, 255, 0.1); }
   </style>
 </head>
 <body>
@@ -60,33 +71,77 @@
     <h1>🔎 GitHub Organization Activity & PR Review Analyzer</h1>
   </header>
 
+  <!-- Live Authentication Status Indicator -->
+  <div class="auth-banner" id="authBanner">
+    <div>
+      <span>Current Authentication Source: </span>
+      <span class="auth-mode-active" id="activeAuthBadge">🔍 Detecting available credentials...</span>
+    </div>
+    <div id="authDetailsText" style="color: var(--text-muted);"></div>
+  </div>
+
   <div class="card">
+    <label style="font-size: 13px; color: var(--text-muted); font-weight: 500; margin-bottom: 8px; display: block;">Select Authentication Method:</label>
+    <div class="auth-toggle-group">
+      <div class="auth-chip selected" id="chipAuto" onclick="selectAuthMethod('auto')">⚡ Auto-Detect (CLI / Env)</div>
+      <div class="auth-chip" id="chipPat" onclick="selectAuthMethod('pat')">🔑 Personal Access Token</div>
+      <div class="auth-chip" id="chipApp" onclick="selectAuthMethod('app')">🏢 GitHub App (ID + PEM)</div>
+    </div>
+
     <div class="grid-form">
       <div class="form-group">
         <label for="orgInput">Organization Name</label>
-        <input type="text" id="orgInput" placeholder="e.g. google, facebook, my-org" required>
+        <input type="text" id="orgInput" placeholder="e.g. google, meta, my-org" required>
       </div>
       <div class="form-group">
         <label for="authorInput">Author / Member Handle</label>
         <input type="text" id="authorInput" placeholder="e.g. octocat" required>
       </div>
-      <div class="form-group">
-        <label for="tokenInput">GitHub Token (optional if set in backend)</label>
+      
+      <!-- PAT input area -->
+      <div class="form-group" id="patInputGroup" style="display: none;">
+        <label for="tokenInput">GitHub Token (PAT)</label>
         <input type="password" id="tokenInput" placeholder="ghp_...">
       </div>
+
+      <!-- Submit button -->
       <div>
         <button id="runBtn" onclick="runAnalysis()">Analyze Activity</button>
       </div>
     </div>
+
+    <!-- GitHub App input area -->
+    <div id="appInputGroup" style="display: none; margin-top: 14px; border-top: 1px solid var(--border); padding-top: 14px;">
+      <div class="grid-form">
+        <div class="form-group">
+          <label for="appIdInput">GitHub App ID</label>
+          <input type="text" id="appIdInput" placeholder="e.g. 123456">
+        </div>
+        <div class="form-group">
+          <label for="installIdInput">Installation ID</label>
+          <input type="text" id="installIdInput" placeholder="e.g. 7890123">
+        </div>
+      </div>
+      <div class="form-group" style="margin-top: 10px;">
+        <label for="pemInput">Private Key (.pem content)</label>
+        <textarea id="pemInput" rows="3" placeholder="-----BEGIN RSA PRIVATE KEY----- ..."></textarea>
+      </div>
+    </div>
+
     <div class="checkbox-group">
       <input type="checkbox" id="checkUnlinked" checked>
-      <label for="checkUnlinked">Analyze branches without PRs (scan unmerged commits)</label>
+      <label for="checkUnlinked">Analyze branches without PRs (scan unmerged commits across all org repositories)</label>
     </div>
   </div>
 
   <div id="loader" class="loader">⏳ Querying GitHub GraphQL & REST API dynamically across organization repositories...</div>
 
   <div id="resultsArea" style="display: none;">
+    <!-- Active Run Authentication Badge -->
+    <div style="margin-bottom: 16px; font-size: 13px; color: var(--text-muted); background: #161b22; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--border);">
+      ✅ Analysis completed using: <strong style="color: #fff;" id="reportAuthMethod"></strong>
+    </div>
+
     <div class="stats-row">
       <div class="stat-card">
         <div class="stat-val" id="statPrs">0</div>
@@ -119,17 +174,73 @@
 </div>
 
 <script>
-  let reportData = null;
+  let currentAuthMode = 'auto';
+
+  window.addEventListener('DOMContentLoaded', async () => {
+    try {
+      const resp = await fetch("/api/auth/status");
+      const status = await resp.json();
+      const badge = document.getElementById("activeAuthBadge");
+      const details = document.getElementById("authDetailsText");
+
+      if (status.github_cli && status.github_cli.authenticated) {
+        badge.innerHTML = "💻 GitHub CLI (gh auth) - Active";
+        details.innerText = "System will auto-authenticate using your local gh login";
+      } else if (status.environment_token) {
+        badge.innerHTML = "🔐 Environment Variable (GITHUB_TOKEN) - Active";
+        details.innerText = "Token detected from environment";
+      } else if (status.github_cli && status.github_cli.installed) {
+        badge.innerHTML = "⚠️ GitHub CLI Installed (Not Logged In)";
+        details.innerText = "Run 'gh auth login' or enter token below";
+      } else {
+        badge.innerHTML = "⚠️ No Auto-Credentials Detected";
+        details.innerText = "Please provide a Personal Access Token or GitHub App credentials";
+      }
+    } catch (e) {
+      document.getElementById("activeAuthBadge").innerText = "Ready";
+    }
+  });
+
+  function selectAuthMethod(mode) {
+    currentAuthMode = mode;
+    document.querySelectorAll(".auth-chip").forEach(c => c.classList.remove("selected"));
+    
+    document.getElementById("patInputGroup").style.display = "none";
+    document.getElementById("appInputGroup").style.display = "none";
+
+    if (mode === 'auto') {
+      document.getElementById("chipAuto").classList.add("selected");
+    } else if (mode === 'pat') {
+      document.getElementById("chipPat").classList.add("selected");
+      document.getElementById("patInputGroup").style.display = "block";
+    } else if (mode === 'app') {
+      document.getElementById("chipApp").classList.add("selected");
+      document.getElementById("appInputGroup").style.display = "block";
+    }
+  }
 
   async function runAnalysis() {
     const org = document.getElementById("orgInput").value.trim();
     const author = document.getElementById("authorInput").value.trim();
-    const token = document.getElementById("tokenInput").value.trim();
     const checkUnlinked = document.getElementById("checkUnlinked").checked;
 
     if (!org || !author) {
       alert("Please specify both Organization and Author.");
       return;
+    }
+
+    const payload = {
+      org: org,
+      author: author,
+      include_branches_without_pr: checkUnlinked,
+    };
+
+    if (currentAuthMode === 'pat') {
+      payload.token = document.getElementById("tokenInput").value.trim();
+    } else if (currentAuthMode === 'app') {
+      payload.app_id = document.getElementById("appIdInput").value.trim();
+      payload.installation_id = document.getElementById("installIdInput").value.trim();
+      payload.private_key = document.getElementById("pemInput").value.trim();
     }
 
     const loader = document.getElementById("loader");
@@ -144,20 +255,14 @@
       const resp = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          org: org,
-          author: author,
-          token: token,
-          include_branches_without_pr: checkUnlinked
-        })
+        body: JSON.stringify(payload)
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || "Analysis failed");
 
-      reportData = data;
       renderReport(data);
     } catch (err) {
-      alert("Error: " + err.message);
+      alert(err.message);
     } finally {
       loader.style.display = "none";
       runBtn.disabled = false;
@@ -166,6 +271,7 @@
 
   function renderReport(data) {
     document.getElementById("resultsArea").style.display = "block";
+    document.getElementById("reportAuthMethod").innerText = data.auth_method || "Token";
 
     const prs = data.pull_requests || [];
     const issues = data.issues || [];
