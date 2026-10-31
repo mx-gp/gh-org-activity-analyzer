@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>GitHub Org Activity & PR Review Analyzer</title>
+  <title>GitHub Activity & PR Review Analyzer</title>
   <style>
     :root {
       --bg: #0d1117;
@@ -23,11 +23,13 @@
     header { margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
     h1 { font-size: 24px; font-weight: 600; }
     .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 20px; }
-    .grid-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; align-items: flex-end; }
+    .grid-form { display: grid; grid-template-columns: 2fr 1.2fr auto; gap: 16px; align-items: flex-end; }
+    @media (max-width: 800px) { .grid-form { grid-template-columns: 1fr; } }
     .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text-muted); }
-    .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 10px 12px; background: #010409; border: 1px solid var(--border); border-radius: 6px; color: #fff; font-size: 14px; }
-    .checkbox-group { display: flex; align-items: center; gap: 8px; font-size: 14px; margin-top: 10px; }
-    button { background: var(--success); color: #fff; border: none; padding: 10px 20px; font-weight: 600; border-radius: 6px; cursor: pointer; transition: 0.2s; font-size: 14px; }
+    .form-group input, .form-group textarea { width: 100%; padding: 10px 12px; background: #010409; border: 1px solid var(--border); border-radius: 6px; color: #fff; font-size: 14px; }
+    .form-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+    .checkbox-group { display: flex; align-items: center; gap: 8px; font-size: 14px; margin-top: 14px; }
+    button { background: var(--success); color: #fff; border: none; padding: 10px 24px; font-weight: 600; border-radius: 6px; cursor: pointer; transition: 0.2s; font-size: 14px; height: 42px; }
     button:hover { background: #2ea043; }
     button:disabled { opacity: 0.6; cursor: not-allowed; }
     
@@ -52,7 +54,7 @@
     .badge-comment { background: rgba(210, 153, 34, 0.2); color: var(--warning); }
     
     .list-item { background: #0d1117; border: 1px solid var(--border); border-radius: 6px; padding: 14px 18px; margin-bottom: 12px; }
-    .list-title { display: flex; justify-content: space-between; align-items: baseline; font-weight: 600; font-size: 16px; margin-bottom: 6px; }
+    .list-title { display: flex; justify-content: space-between; align-items: baseline; font-weight: 600; font-size: 16px; margin-bottom: 6px; flex-wrap: wrap; gap: 8px; }
     .list-title a { color: var(--accent); text-decoration: none; }
     .list-title a:hover { text-decoration: underline; }
     .reviewers-list { margin-top: 10px; padding: 10px; background: #161b22; border-radius: 6px; font-size: 13px; }
@@ -68,51 +70,35 @@
 <body>
 <div class="container">
   <header>
-    <h1>🔎 GitHub Organization Activity & PR Review Analyzer</h1>
+    <h1>🔎 GitHub Activity & PR Review Analyzer</h1>
   </header>
 
   <!-- Live Authentication Status Indicator -->
   <div class="auth-banner" id="authBanner">
     <div>
-      <span>Current Authentication Source: </span>
+      <span>Active Session: </span>
       <span class="auth-mode-active" id="activeAuthBadge">🔍 Detecting available credentials...</span>
     </div>
     <div id="authDetailsText" style="color: var(--text-muted);"></div>
   </div>
 
   <div class="card">
-    <label style="font-size: 13px; color: var(--text-muted); font-weight: 500; margin-bottom: 8px; display: block;">Select Authentication Method:</label>
+    <label style="font-size: 13px; color: var(--text-muted); font-weight: 500; margin-bottom: 8px; display: block;">Authentication Method:</label>
     <div class="auth-toggle-group">
       <div class="auth-chip selected" id="chipAuto" onclick="selectAuthMethod('auto')">⚡ Auto-Detect (CLI / Env)</div>
       <div class="auth-chip" id="chipPat" onclick="selectAuthMethod('pat')">🔑 Personal Access Token</div>
       <div class="auth-chip" id="chipApp" onclick="selectAuthMethod('app')">🏢 GitHub App (ID + PEM)</div>
     </div>
 
-    <div class="grid-form">
-      <div class="form-group">
-        <label for="orgInput">Organization (Optional - leave blank for personal repos)</label>
-        <input type="text" id="orgInput" placeholder="e.g. google, meta (or leave empty)">
-      </div>
-      <div class="form-group">
-        <label for="authorInput">Author / Member Handle *</label>
-        <input type="text" id="authorInput" placeholder="e.g. octocat" required>
-      </div>
-      
-      <!-- PAT input area -->
-      <div class="form-group" id="patInputGroup" style="display: none;">
-        <label for="tokenInput">GitHub Token (PAT)</label>
-        <input type="password" id="tokenInput" placeholder="ghp_...">
-      </div>
-
-      <!-- Submit button -->
-      <div>
-        <button id="runBtn" onclick="runAnalysis()">Analyze Activity</button>
-      </div>
+    <!-- PAT input area -->
+    <div class="form-group" id="patInputGroup" style="display: none; margin-bottom: 14px;">
+      <label for="tokenInput">GitHub Token (PAT)</label>
+      <input type="password" id="tokenInput" placeholder="ghp_...">
     </div>
 
     <!-- GitHub App input area -->
-    <div id="appInputGroup" style="display: none; margin-top: 14px; border-top: 1px solid var(--border); padding-top: 14px;">
-      <div class="grid-form">
+    <div id="appInputGroup" style="display: none; margin-bottom: 14px; border: 1px solid var(--border); padding: 12px; border-radius: 6px;">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px;">
         <div class="form-group">
           <label for="appIdInput">GitHub App ID</label>
           <input type="text" id="appIdInput" placeholder="e.g. 123456">
@@ -122,24 +108,45 @@
           <input type="text" id="installIdInput" placeholder="e.g. 7890123">
         </div>
       </div>
-      <div class="form-group" style="margin-top: 10px;">
+      <div class="form-group">
         <label for="pemInput">Private Key (.pem content)</label>
         <textarea id="pemInput" rows="3" placeholder="-----BEGIN RSA PRIVATE KEY----- ..."></textarea>
       </div>
     </div>
 
+    <!-- Main Analysis Form -->
+    <div class="grid-form">
+      <div class="form-group">
+        <label for="targetInput">Target Repository, URL, or Organization</label>
+        <input type="text" id="targetInput" placeholder="e.g. https://github.com/octocat/my-repo, octocat/my-repo, or org name" autofocus>
+        <div class="form-hint">Accepts GitHub URLs, <code>owner/repo</code>, repo name, or organization. Leave empty to scan all your repos.</div>
+      </div>
+
+      <div class="form-group">
+        <label for="authorInput">Author Filter <span style="font-weight: normal; color: var(--text-muted);">(Optional)</span></label>
+        <input type="text" id="authorInput" placeholder="e.g. octocat (or leave blank for all)">
+        <div class="form-hint">Filter contributions by user handle, or leave empty to see all contributions.</div>
+      </div>
+
+      <div>
+        <button id="runBtn" onclick="runAnalysis()">Analyze Activity</button>
+      </div>
+    </div>
+
     <div class="checkbox-group">
       <input type="checkbox" id="checkUnlinked" checked>
-      <label for="checkUnlinked">Analyze branches without PRs (scan unmerged commits across all org repositories)</label>
+      <label for="checkUnlinked">Audit non-default branches (scan unmerged commits & PR association)</label>
     </div>
   </div>
 
-  <div id="loader" class="loader">⏳ Querying GitHub GraphQL & REST API dynamically across organization repositories...</div>
+  <div id="loader" class="loader">⏳ Querying GitHub GraphQL & REST API dynamically...</div>
 
   <div id="resultsArea" style="display: none;">
-    <!-- Active Run Authentication Badge -->
-    <div style="margin-bottom: 16px; font-size: 13px; color: var(--text-muted); background: #161b22; padding: 8px 14px; border-radius: 6px; border: 1px solid var(--border);">
-      ✅ Analysis completed using: <strong style="color: #fff;" id="reportAuthMethod"></strong>
+    <!-- Active Run Scope Badge -->
+    <div style="margin-bottom: 16px; font-size: 13px; color: var(--text-muted); background: #161b22; padding: 10px 14px; border-radius: 6px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+      <div>🎯 Scope: <strong style="color: #fff;" id="reportScope"></strong></div>
+      <div>👤 Author Filter: <strong style="color: var(--accent);" id="reportAuthor"></strong></div>
+      <div>🔐 Auth: <strong style="color: #fff;" id="reportAuthMethod"></strong></div>
     </div>
 
     <div class="stats-row">
@@ -153,7 +160,7 @@
       </div>
       <div class="stat-card">
         <div class="stat-val" id="statIssues">0</div>
-        <div class="stat-lbl">Issues Opened</div>
+        <div class="stat-lbl">Issues Found</div>
       </div>
       <div class="stat-card">
         <div class="stat-val" id="statOrphans">0</div>
@@ -175,6 +182,7 @@
 
 <script>
   let currentAuthMode = 'auto';
+  let detectedUser = '';
 
   window.addEventListener('DOMContentLoaded', async () => {
     try {
@@ -183,12 +191,20 @@
       const badge = document.getElementById("activeAuthBadge");
       const details = document.getElementById("authDetailsText");
 
+      if (status.detected_user) {
+        detectedUser = status.detected_user;
+        // Suggest current user in placeholder
+        document.getElementById("authorInput").placeholder = `e.g. ${detectedUser} (or leave empty for all)`;
+      }
+
       if (status.github_cli && status.github_cli.authenticated) {
-        badge.innerHTML = "💻 GitHub CLI (gh auth) - Active";
-        details.innerText = "System will auto-authenticate using your local gh login";
+        const userStr = status.github_cli.user ? ` (@${status.github_cli.user})` : '';
+        badge.innerHTML = `💻 GitHub CLI (gh auth)${userStr} - Active`;
+        details.innerText = "Auto-authenticating with your local GitHub CLI credentials";
       } else if (status.environment_token) {
-        badge.innerHTML = "🔐 Environment Variable (GITHUB_TOKEN) - Active";
-        details.innerText = "Token detected from environment";
+        const userStr = status.environment_user ? ` (@${status.environment_user})` : '';
+        badge.innerHTML = `🔐 Environment Variable${userStr} - Active`;
+        details.innerText = "Token detected from GITHUB_TOKEN environment variable";
       } else if (status.github_cli && status.github_cli.installed) {
         badge.innerHTML = "⚠️ GitHub CLI Installed (Not Logged In)";
         details.innerText = "Run 'gh auth login' or enter token below";
@@ -220,17 +236,12 @@
   }
 
   async function runAnalysis() {
-    const org = document.getElementById("orgInput").value.trim();
+    const target = document.getElementById("targetInput").value.trim();
     const author = document.getElementById("authorInput").value.trim();
     const checkUnlinked = document.getElementById("checkUnlinked").checked;
 
-    if (!author) {
-      alert("Please specify the Author handle.");
-      return;
-    }
-
     const payload = {
-      org: org,
+      target: target,
       author: author,
       include_branches_without_pr: checkUnlinked,
     };
@@ -271,8 +282,9 @@
 
   function renderReport(data) {
     document.getElementById("resultsArea").style.display = "block";
-    const scopeLabel = data.scope_type ? `${data.scope_type}: ${data.scope_name}` : (data.org || data.author);
-    document.getElementById("reportAuthMethod").innerText = `${data.auth_method || "Token"} | Scope: ${scopeLabel}`;
+    document.getElementById("reportScope").innerText = data.scope || "All";
+    document.getElementById("reportAuthor").innerText = data.author_filter === "ALL" ? "All Authors" : `@${data.author_filter}`;
+    document.getElementById("reportAuthMethod").innerText = data.auth_method || "Active Session";
 
     const prs = data.pull_requests || [];
     const issues = data.issues || [];
@@ -289,7 +301,7 @@
     // Render PRs
     const prsContainer = document.getElementById("prsTab");
     if (prs.length === 0) {
-      prsContainer.innerHTML = "<div class='card'>No pull requests found for this author in the organization.</div>";
+      prsContainer.innerHTML = "<div class='card'>No pull requests found for the selected target and author.</div>";
     } else {
       prsContainer.innerHTML = prs.map(pr => {
         const badgeClass = pr.state === "OPEN" ? "badge-open" : pr.state === "MERGED" ? "badge-merged" : "badge-closed";
@@ -310,6 +322,7 @@
               <div>
                 <span class="code-tag">${pr.repo}</span>
                 <a href="${pr.url}" target="_blank">#${pr.number} ${pr.title}</a>
+                <span style="font-size: 13px; color: var(--text-muted); margin-left: 6px;">by <strong>@${pr.author}</strong></span>
               </div>
               <span class="badge ${badgeClass}">${pr.state}</span>
             </div>
@@ -329,7 +342,7 @@
     // Render Branches
     const orphansContainer = document.getElementById("orphansTab");
     if (orphans.length === 0) {
-      orphansContainer.innerHTML = "<div class='card'>No non-default branches found containing commits by this author.</div>";
+      orphansContainer.innerHTML = "<div class='card'>No non-default branches found for this repository.</div>";
     } else {
       orphansContainer.innerHTML = orphans.map(o => {
         let statusBadge = "badge-comment";
@@ -352,7 +365,7 @@
               <span class="badge ${statusBadge}">${o.status_label || o.pr_status}</span>
             </div>
             <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 6px;">
-              ${o.matched_commits_count} commits authored by member on this branch:
+              ${o.matched_commits_count} commits on this branch:
             </div>
             <div style="margin-top: 6px; background: #161b22; padding: 10px; border-radius: 6px;">
               ${o.commits.map(c => `
@@ -369,7 +382,7 @@
     // Render Issues
     const issuesContainer = document.getElementById("issuesTab");
     if (issues.length === 0) {
-      issuesContainer.innerHTML = "<div class='card'>No issues found for this author.</div>";
+      issuesContainer.innerHTML = "<div class='card'>No issues found for this selection.</div>";
     } else {
       issuesContainer.innerHTML = issues.map(i => `
         <div class="list-item">
@@ -377,6 +390,7 @@
             <div>
               <span class="code-tag">${i.repo}</span>
               <a href="${i.url}" target="_blank">#${i.number} ${i.title}</a>
+              <span style="font-size: 13px; color: var(--text-muted); margin-left: 6px;">by <strong>@${i.author}</strong></span>
             </div>
             <span class="badge ${i.state === 'OPEN' ? 'badge-open' : 'badge-closed'}">${i.state}</span>
           </div>

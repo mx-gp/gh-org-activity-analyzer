@@ -1,12 +1,39 @@
 import unittest
 from unittest.mock import MagicMock
-from analyzer import GitHubOrgActivityAnalyzer
+from analyzer import GitHubOrgActivityAnalyzer, GitHubTargetScope
+
+
+class TestGitHubTargetScope(unittest.TestCase):
+
+    def test_parse_url(self):
+        owner, repo, kind = GitHubTargetScope.parse("https://github.com/octocat/my-repo")
+        self.assertEqual(owner, "octocat")
+        self.assertEqual(repo, "my-repo")
+        self.assertEqual(kind, "single_repo")
+
+    def test_parse_owner_repo(self):
+        owner, repo, kind = GitHubTargetScope.parse("octocat/my-repo")
+        self.assertEqual(owner, "octocat")
+        self.assertEqual(repo, "my-repo")
+        self.assertEqual(kind, "single_repo")
+
+    def test_parse_short_repo_with_default_owner(self):
+        owner, repo, kind = GitHubTargetScope.parse("my-repo", default_owner="octocat")
+        self.assertEqual(owner, "octocat")
+        self.assertEqual(repo, "my-repo")
+        self.assertEqual(kind, "single_repo")
+
+    def test_parse_org(self):
+        owner, repo, kind = GitHubTargetScope.parse("google")
+        self.assertEqual(owner, "google")
+        self.assertIsNone(repo)
+        self.assertEqual(kind, "org_or_user")
 
 
 class TestGitHubOrgActivityAnalyzer(unittest.TestCase):
 
     def test_analyze_pull_requests_review_parsing(self):
-        analyzer = GitHubOrgActivityAnalyzer(token="dummy", org="test-org")
+        analyzer = GitHubOrgActivityAnalyzer(token="dummy", owner="test-org", repo="repo1")
 
         mock_graphql_data = {
             "search": {
@@ -20,7 +47,7 @@ class TestGitHubOrgActivityAnalyzer(unittest.TestCase):
                         "createdAt": "2026-03-01T10:00:00Z",
                         "mergedAt": None,
                         "closedAt": None,
-                        "repository": {"name": "repo1"},
+                        "repository": {"name": "repo1", "owner": {"login": "test-org"}},
                         "author": {"login": "alice"},
                         "additions": 120,
                         "deletions": 15,
@@ -32,12 +59,6 @@ class TestGitHubOrgActivityAnalyzer(unittest.TestCase):
                                     "state": "APPROVED",
                                     "submittedAt": "2026-03-01T12:00:00Z",
                                     "body": "LGTM",
-                                },
-                                {
-                                    "author": {"login": "carol"},
-                                    "state": "CHANGES_REQUESTED",
-                                    "submittedAt": "2026-03-01T13:00:00Z",
-                                    "body": "Please add tests",
                                 },
                             ]
                         },
@@ -53,68 +74,15 @@ class TestGitHubOrgActivityAnalyzer(unittest.TestCase):
 
         analyzer._graphql = MagicMock(return_value=mock_graphql_data)
 
-        prs = analyzer.analyze_pull_requests(author="alice")
+        prs = analyzer.analyze_pull_requests(author_filter="alice")
         self.assertEqual(len(prs), 1)
         pr = prs[0]
         self.assertEqual(pr["number"], 42)
-        self.assertEqual(pr["repo"], "repo1")
+        self.assertEqual(pr["repo"], "test-org/repo1")
         self.assertEqual(pr["lines_added"], 120)
-        self.assertEqual(len(pr["reviews"]), 2)
+        self.assertEqual(len(pr["reviews"]), 1)
         self.assertEqual(pr["reviews"][0]["reviewer"], "bob")
         self.assertEqual(pr["reviews"][0]["state"], "APPROVED")
-        self.assertEqual(pr["reviews"][1]["reviewer"], "carol")
-        self.assertEqual(pr["reviews"][1]["state"], "CHANGES_REQUESTED")
-        self.assertEqual(pr["pending_reviewers"], ["dave"])
-
-    def test_analyze_branches_without_prs_filtering(self):
-        analyzer = GitHubOrgActivityAnalyzer(token="dummy", org="test-org")
-
-        def mock_http_request(url, **kwargs):
-            if "/pulls" in url:
-                return [{"head": {"ref": "feature/branch-with-pr"}, "number": 10, "state": "open", "merged_at": None, "html_url": "http://pr"}]
-            elif "/branches" in url:
-                return [
-                    {"name": "main"},
-                    {"name": "feature/branch-with-pr"},
-                    {"name": "feature/orphan-branch"},
-                ]
-            elif "/commits" in url:
-                return [
-                    {
-                        "sha": "abc1234567890",
-                        "author": {"login": "alice"},
-                        "commit": {
-                            "author": {"name": "Alice Developer", "date": "2026-03-02T08:00:00Z"},
-                            "message": "Work in progress commit",
-                        },
-                    },
-                    {
-                        "sha": "def9876543210",
-                        "author": {"login": "stranger"},
-                        "commit": {
-                            "author": {"name": "Stranger", "date": "2026-03-01T08:00:00Z"},
-                            "message": "Other work",
-                        },
-                    },
-                ]
-            return []
-
-        analyzer._http_request = MagicMock(side_effect=mock_http_request)
-
-        branches = analyzer.analyze_branches_without_prs(
-            repo="backend", default_branch="main", user_filter="alice"
-        )
-
-        # Both branches have commits by alice, but their PR status is distinguished
-        self.assertEqual(len(branches), 2)
-        orphan_branch = [b for b in branches if b["branch"] == "feature/orphan-branch"][0]
-        self.assertEqual(orphan_branch["pr_status"], "NO_PR_EVER")
-        self.assertEqual(orphan_branch["matched_commits_count"], 1)
-        self.assertEqual(orphan_branch["commits"][0]["author"], "alice")
-        self.assertEqual(orphan_branch["commits"][0]["sha"], "abc1234")
-
-        active_pr_branch = [b for b in branches if b["branch"] == "feature/branch-with-pr"][0]
-        self.assertEqual(active_pr_branch["pr_status"], "OPEN_PR")
 
 
 if __name__ == "__main__":

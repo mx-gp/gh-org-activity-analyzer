@@ -3,7 +3,7 @@ import json
 import os
 import sys
 from urllib.parse import urlparse
-from analyzer import GitHubOrgActivityAnalyzer
+from analyzer import GitHubOrgActivityAnalyzer, GitHubTargetScope
 from auth import GitHubAuthManager
 
 PORT = int(os.environ.get("PORT", 8080))
@@ -43,22 +43,13 @@ class AnalyzerHTTPHandler(http.server.BaseHTTPRequestHandler):
                 self._send_json({"error": "Invalid JSON body"}, 400)
                 return
 
-            org = payload.get("org")
-            user = payload.get("user")
-            author = payload.get("author")
+            target = payload.get("target") or payload.get("org")
+            author_filter = payload.get("author")
             token_input = payload.get("token")
             app_id = payload.get("app_id")
             private_key = payload.get("private_key")
             installation_id = payload.get("installation_id")
-            include_unlinked = payload.get("include_branches_without_pr", True)
-
-            if not author:
-                self._send_json({"error": "'author' is required"}, 400)
-                return
-
-            # If org is left empty, default scope to individual user / author
-            if not org and not user:
-                user = author
+            include_branches = payload.get("include_branches_without_pr", True)
 
             try:
                 token, auth_method, meta = GitHubAuthManager.resolve_token(
@@ -71,34 +62,46 @@ class AnalyzerHTTPHandler(http.server.BaseHTTPRequestHandler):
                 self._send_json({"error": f"Authentication Error: {e}"}, 401)
                 return
 
+            auth_user = meta.get("user_login")
+            owner, repo, scope_kind = GitHubTargetScope.parse(target, default_owner=auth_user)
+
             try:
-                analyzer = GitHubOrgActivityAnalyzer(token=token, org=org, user=user)
-                scope_type = "Organization" if org else "User"
-                scope_name = org or user
+                analyzer = GitHubOrgActivityAnalyzer(
+                    token=token,
+                    owner=owner,
+                    repo=repo,
+                    is_org=bool(payload.get("is_org")),
+                )
+
+                repos = analyzer.get_repositories()
+                prs = analyzer.analyze_pull_requests(author_filter=author_filter)
+                issues = analyzer.analyze_issues(author_filter=author_filter)
+
+                all_branches = []
+                if include_branches:
+                    for r in repos:
+                        r_owner = r.get("owner", owner)
+                        b_list = analyzer.analyze_branches(
+                            repo_owner=r_owner,
+                            repo_name=r["name"],
+                            default_branch=r["default_branch"],
+                            user_filter=author_filter
+                        )
+                        all_branches.extend(b_list)
+
+                scope_display = f"{owner}/{repo}" if repo else (owner or "All User Repositories")
 
                 result = {
-                    "scope_type": scope_type,
-                    "scope_name": scope_name,
-                    "author": author,
+                    "scope": scope_display,
+                    "target_type": "repository" if repo else "organization_or_user",
+                    "author_filter": author_filter or "ALL",
                     "auth_method": auth_method,
+                    "auth_user": auth_user,
                     "auth_details": meta,
-                    "pull_requests": analyzer.analyze_pull_requests(author),
-                    "issues": analyzer.analyze_issues(author),
+                    "pull_requests": prs,
+                    "issues": issues,
+                    "branches_without_pr": all_branches,
                 }
-
-                if include_unlinked:
-                    repos = analyzer.get_organization_repositories()
-                    unlinked_all = []
-                    for r in repos:
-                        unlinked = analyzer.analyze_branches_without_prs(
-                            repo=r["name"],
-                            default_branch=r["default_branch"],
-                            user_filter=author
-                        )
-                        unlinked_all.extend(unlinked)
-                    result["branches_without_pr"] = unlinked_all
-                else:
-                    result["branches_without_pr"] = []
 
                 self._send_json(result, 200)
 
@@ -116,7 +119,6 @@ class AnalyzerHTTPHandler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def log_message(self, format, *args):
-        # Format can receive 3 args (like 'GET / 200') or 2 args (like 'code %d, message %s' from log_error)
         msg = format % args if args else format
         sys.stderr.write(f"[{self.log_date_time_string()}] {self.address_string()} {msg}\n")
 
