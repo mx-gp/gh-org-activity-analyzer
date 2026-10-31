@@ -157,13 +157,13 @@
       </div>
       <div class="stat-card">
         <div class="stat-val" id="statOrphans">0</div>
-        <div class="stat-lbl">Branches Without PRs</div>
+        <div class="stat-lbl">Non-Default Branches</div>
       </div>
     </div>
 
     <div class="tabs">
       <button class="tab-btn active" onclick="switchTab('prs')">Pull Requests & Review Telemetry</button>
-      <button class="tab-btn" onclick="switchTab('orphans')">Branches Without PRs</button>
+      <button class="tab-btn" onclick="switchTab('orphans')">Branch & PR Lifecycle Audit</button>
       <button class="tab-btn" onclick="switchTab('issues')">Issues</button>
     </div>
 
@@ -326,29 +326,44 @@
       }).join("");
     }
 
-    // Render Branches without PRs
+    // Render Branches
     const orphansContainer = document.getElementById("orphansTab");
     if (orphans.length === 0) {
-      orphansContainer.innerHTML = "<div class='card'>No unlinked branches found containing commits by this author.</div>";
+      orphansContainer.innerHTML = "<div class='card'>No non-default branches found containing commits by this author.</div>";
     } else {
-      orphansContainer.innerHTML = orphans.map(o => `
-        <div class="list-item">
-          <div class="list-title">
-            <div>
-              <span class="code-tag">${o.repo}</span>
-              <span>Branch: <strong>${o.branch}</strong></span>
-            </div>
-            <span class="badge badge-changes">${o.matched_commits_count} commits by author</span>
-          </div>
-          <div style="margin-top: 8px;">
-            ${o.commits.map(c => `
-              <div style="font-size:12px; margin-top:4px; color:var(--text-muted);">
-                <span class="code-tag">${c.sha}</span> <strong>@${c.author}</strong> - ${c.message} <span style="font-size:11px;">(${c.date})</span>
+      orphansContainer.innerHTML = orphans.map(o => {
+        let statusBadge = "badge-comment";
+        if (o.pr_status === "NO_PR_EVER") statusBadge = "badge-changes";
+        else if (o.pr_status === "MERGED_STALE") statusBadge = "badge-merged";
+        else if (o.pr_status === "OPEN_PR") statusBadge = "badge-open";
+
+        const prLink = o.associated_pr
+          ? `<a href="${o.associated_pr.url}" target="_blank" style="color:var(--accent);margin-left:8px;">🔗 View PR #${o.associated_pr.number}</a>`
+          : `<span style="color:var(--danger);margin-left:8px;">⚠️ Never had a PR</span>`;
+
+        return `
+          <div class="list-item">
+            <div class="list-title">
+              <div>
+                <span class="code-tag">${o.repo}</span>
+                <span>Branch: <strong>${o.branch}</strong></span>
+                ${prLink}
               </div>
-            `).join("")}
+              <span class="badge ${statusBadge}">${o.status_label || o.pr_status}</span>
+            </div>
+            <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 6px;">
+              ${o.matched_commits_count} commits authored by member on this branch:
+            </div>
+            <div style="margin-top: 6px; background: #161b22; padding: 10px; border-radius: 6px;">
+              ${o.commits.map(c => `
+                <div style="font-size:12px; margin-top:4px; color:var(--text-muted);">
+                  <span class="code-tag">${c.sha}</span> <strong>@${c.author}</strong> - ${c.message} <span style="font-size:11px;">(${c.date})</span>
+                </div>
+              `).join("")}
+            </div>
           </div>
-        </div>
-      `).join("");
+        `;
+      }).join("");
     }
 
     // Render Issues
