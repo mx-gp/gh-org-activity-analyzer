@@ -17,10 +17,11 @@
       --warning: #d29922;
       --danger: #f85149;
       --purple: #bc8cff;
+      --cyan: #39c5cf;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
     body { background: var(--bg); color: var(--text); padding: 24px; line-height: 1.5; }
-    .container { max-width: 1240px; margin: 0 auto; }
+    .container { max-width: 1280px; margin: 0 auto; }
     header { margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
     h1 { font-size: 24px; font-weight: 600; }
     .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 20px; }
@@ -37,10 +38,10 @@
     .auth-banner { display: flex; align-items: center; justify-content: space-between; background: rgba(56, 139, 253, 0.1); border: 1px solid rgba(56, 139, 253, 0.4); border-radius: 6px; padding: 10px 16px; margin-bottom: 16px; font-size: 13px; }
     .auth-mode-active { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; color: var(--accent); }
     
-    .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 14px; margin-bottom: 24px; }
     .stat-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px; text-align: center; }
-    .stat-val { font-size: 28px; font-weight: 700; color: #fff; }
-    .stat-lbl { font-size: 12px; color: var(--text-muted); text-transform: uppercase; margin-top: 4px; }
+    .stat-val { font-size: 26px; font-weight: 700; color: #fff; }
+    .stat-lbl { font-size: 11px; color: var(--text-muted); text-transform: uppercase; margin-top: 4px; }
     
     .tabs { display: flex; gap: 12px; border-bottom: 1px solid var(--border); margin-bottom: 20px; overflow-x: auto; }
     .tab-btn { background: none; border: none; color: var(--text-muted); padding: 10px 16px; font-size: 14px; font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; }
@@ -54,9 +55,10 @@
     .badge-changes { background: rgba(248, 81, 73, 0.2); color: var(--danger); }
     .badge-comment { background: rgba(210, 153, 34, 0.2); color: var(--warning); }
     .badge-type { background: rgba(110, 118, 129, 0.25); color: #e6edf3; font-weight: 500; }
+    .badge-cyan { background: rgba(57, 197, 207, 0.15); color: var(--cyan); border: 1px solid rgba(57, 197, 207, 0.4); }
     
     .list-item { background: #0d1117; border: 1px solid var(--border); border-radius: 6px; padding: 14px 18px; margin-bottom: 12px; }
-    .list-title { display: flex; justify-content: space-between; align-items: baseline; font-weight: 600; font-size: 16px; margin-bottom: 6px; flex-wrap: wrap; gap: 8px; }
+    .list-title { display: flex; justify-content: space-between; align-items: baseline; font-weight: 600; font-size: 15px; margin-bottom: 6px; flex-wrap: wrap; gap: 8px; }
     .list-title a { color: var(--accent); text-decoration: none; }
     .list-title a:hover { text-decoration: underline; }
     .reviewers-list { margin-top: 10px; padding: 10px; background: #161b22; border-radius: 6px; font-size: 13px; }
@@ -68,7 +70,6 @@
     .auth-chip { background: #010409; border: 1px solid var(--border); color: var(--text-muted); padding: 6px 12px; border-radius: 16px; font-size: 12px; cursor: pointer; }
     .auth-chip.selected { border-color: var(--accent); color: var(--accent); font-weight: 600; background: rgba(88, 166, 255, 0.1); }
 
-    /* Date Filter Toolbar */
     .filter-bar { background: #161b22; border: 1px solid var(--border); border-radius: 6px; padding: 12px 16px; margin-bottom: 20px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
     .filter-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .filter-group label { font-size: 13px; color: var(--text-muted); font-weight: 500; }
@@ -77,7 +78,9 @@
     .preset-btn:hover { background: #30363d; }
     .preset-btn.active { background: rgba(88, 166, 255, 0.15); border-color: var(--accent); color: var(--accent); font-weight: 600; }
 
-    /* Daily Work Breakdown Timeline */
+    .export-btn { background: #21262d; border: 1px solid var(--border); color: var(--accent); padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; }
+    .export-btn:hover { background: #30363d; }
+
     .day-section { margin-bottom: 24px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--card-bg); }
     .day-header { background: #21262d; padding: 12px 18px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
     .day-title { font-size: 15px; font-weight: 600; color: #fff; display: flex; align-items: center; gap: 10px; }
@@ -88,6 +91,7 @@
     .timeline-time { font-size: 12px; color: var(--text-muted); font-family: monospace; }
     .timeline-icon { font-size: 15px; text-align: center; }
     .timeline-content { font-size: 13px; }
+    .comment-bubble { background: #161b22; border-left: 3px solid var(--accent); padding: 8px 12px; margin-top: 6px; border-radius: 0 4px 4px 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 13px; color: var(--text); }
   </style>
 </head>
 <body>
@@ -96,7 +100,6 @@
     <h1>🔎 GitHub Activity & PR Review Analyzer</h1>
   </header>
 
-  <!-- Live Authentication Status Indicator -->
   <div class="auth-banner" id="authBanner">
     <div>
       <span>Active Session: </span>
@@ -113,13 +116,11 @@
       <div class="auth-chip" id="chipApp" onclick="selectAuthMethod('app')">🏢 GitHub App (ID + PEM)</div>
     </div>
 
-    <!-- PAT input area -->
     <div class="form-group" id="patInputGroup" style="display: none; margin-bottom: 14px;">
       <label for="tokenInput">GitHub Token (PAT)</label>
       <input type="password" id="tokenInput" placeholder="ghp_...">
     </div>
 
-    <!-- GitHub App input area -->
     <div id="appInputGroup" style="display: none; margin-bottom: 14px; border: 1px solid var(--border); padding: 12px; border-radius: 6px;">
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px;">
         <div class="form-group">
@@ -137,7 +138,6 @@
       </div>
     </div>
 
-    <!-- Main Analysis Form -->
     <div class="grid-form">
       <div class="form-group">
         <label for="targetInput">Target Repository, URL, or Organization</label>
@@ -165,14 +165,15 @@
   <div id="loader" class="loader">⏳ Querying GitHub GraphQL & REST API dynamically...</div>
 
   <div id="resultsArea" style="display: none;">
-    <!-- Active Run Scope Badge -->
     <div style="margin-bottom: 16px; font-size: 13px; color: var(--text-muted); background: #161b22; padding: 10px 14px; border-radius: 6px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
       <div>🎯 Scope: <strong style="color: #fff;" id="reportScope"></strong></div>
       <div>👤 Author Filter: <strong style="color: var(--accent);" id="reportAuthor"></strong></div>
       <div>🔐 Auth: <strong style="color: #fff;" id="reportAuthMethod"></strong></div>
+      <div>
+        <button class="export-btn" onclick="exportReportJson()">⬇️ Export JSON</button>
+      </div>
     </div>
 
-    <!-- Dynamic Date Range Filter Toolbar -->
     <div class="filter-bar">
       <div class="filter-group">
         <label>📅 Filter by Date:</label>
@@ -200,8 +201,16 @@
         <div class="stat-lbl">Reviews Audited</div>
       </div>
       <div class="stat-card">
+        <div class="stat-val" id="statComments">0</div>
+        <div class="stat-lbl">Comments Posted</div>
+      </div>
+      <div class="stat-card">
         <div class="stat-val" id="statCommits">0</div>
         <div class="stat-lbl">Branch Commits</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="statTurnaround">--</div>
+        <div class="stat-lbl">Avg PR Turnaround</div>
       </div>
       <div class="stat-card">
         <div class="stat-val" id="statDays">0</div>
@@ -212,12 +221,14 @@
     <div class="tabs">
       <button class="tab-btn active" onclick="switchTab('daily')">📅 Daily Work Breakdown</button>
       <button class="tab-btn" onclick="switchTab('prs')">Pull Requests & Review Telemetry</button>
+      <button class="tab-btn" onclick="switchTab('comments')">💬 Discussion Comments</button>
       <button class="tab-btn" onclick="switchTab('orphans')">Branch & PR Lifecycle Audit</button>
       <button class="tab-btn" onclick="switchTab('issues')">Issues</button>
     </div>
 
     <div id="dailyTab" class="tab-content"></div>
     <div id="prsTab" class="tab-content" style="display: none;"></div>
+    <div id="commentsTab" class="tab-content" style="display: none;"></div>
     <div id="orphansTab" class="tab-content" style="display: none;"></div>
     <div id="issuesTab" class="tab-content" style="display: none;"></div>
   </div>
@@ -384,6 +395,25 @@
     return true;
   }
 
+  function formatDurationHours(hours) {
+    if (isNaN(hours) || hours <= 0) return "--";
+    if (hours < 1) return `${Math.round(hours * 60)}m`;
+    if (hours < 24) return `${hours.toFixed(1)}h`;
+    const days = hours / 24;
+    return `${days.toFixed(1)}d`;
+  }
+
+  function exportReportJson() {
+    if (!rawReportData) return;
+    const blob = new Blob([JSON.stringify(rawReportData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `github-activity-report-${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   function renderReportWithFilters() {
     if (!rawReportData) return;
     document.getElementById("resultsArea").style.display = "block";
@@ -391,11 +421,28 @@
     document.getElementById("reportAuthor").innerText = rawReportData.author_filter === "ALL" ? "All Authors" : `@${rawReportData.author_filter}`;
     document.getElementById("reportAuthMethod").innerText = rawReportData.auth_method || "Active Session";
 
-    // 1. Filter PRs
+    // 1. Filter PRs & compute turnaround time
+    let totalTurnaroundHours = 0;
+    let turnaroundCount = 0;
+
     const filteredPrs = (rawReportData.pull_requests || []).filter(pr => {
+      const created = new Date(pr.created_at);
+      const mergedOrClosed = pr.merged_at ? new Date(pr.merged_at) : (pr.closed_at ? new Date(pr.closed_at) : null);
+
+      if (mergedOrClosed && !isNaN(created.getTime()) && !isNaN(mergedOrClosed.getTime())) {
+        const diffHours = (mergedOrClosed - created) / (1000 * 60 * 60);
+        if (diffHours >= 0) {
+          totalTurnaroundHours += diffHours;
+          turnaroundCount++;
+        }
+      }
+
       if (!activeStartDate && !activeEndDate) return true;
       return isWithinDateRange(pr.created_at) || (pr.merged_at && isWithinDateRange(pr.merged_at));
     });
+
+    const avgTurnaround = turnaroundCount > 0 ? formatDurationHours(totalTurnaroundHours / turnaroundCount) : "--";
+    document.getElementById("statTurnaround").innerText = avgTurnaround;
 
     // 2. Filter Issues
     const filteredIssues = (rawReportData.issues || []).filter(issue => {
@@ -403,7 +450,13 @@
       return isWithinDateRange(issue.created_at);
     });
 
-    // 3. Filter Branch Commits
+    // 3. Filter Comments
+    const filteredComments = (rawReportData.comments || []).filter(c => {
+      if (!activeStartDate && !activeEndDate) return true;
+      return isWithinDateRange(c.created_at);
+    });
+
+    // 4. Filter Branch Commits
     let totalCommitsCount = 0;
     const filteredBranches = (rawReportData.branches_without_pr || []).map(b => {
       const matchingCommits = (b.commits || []).filter(c => {
@@ -418,8 +471,8 @@
       };
     }).filter(b => b.commits.length > 0);
 
-    // 4. Construct Unified Daily Timeline
-    const dailyMap = {}; // 'YYYY-MM-DD': []
+    // 5. Construct Unified Daily Timeline
+    const dailyMap = {};
 
     function addToDaily(dateStr, item) {
       if (!dateStr) return;
@@ -453,11 +506,10 @@
           url: pr.url,
           repo: pr.repo,
           author: pr.author,
-          details: `Successfully merged into default branch`
+          details: `Merged into default branch`
         });
       }
 
-      // Reviews
       (pr.reviews || []).forEach(r => {
         if (isWithinDateRange(r.submitted_at)) {
           const revClass = r.state === 'APPROVED' ? 'badge-approved' : r.state === 'CHANGES_REQUESTED' ? 'badge-changes' : 'badge-comment';
@@ -471,9 +523,24 @@
             url: pr.url,
             repo: pr.repo,
             author: r.reviewer,
-            details: `Review decision: ${r.state}`
+            details: `Decision: ${r.state}`
           });
         }
+      });
+    });
+
+    filteredComments.forEach(c => {
+      addToDaily(c.created_at, {
+        type: 'COMMENT',
+        icon: '💬',
+        badge: 'Comment',
+        badgeClass: 'badge-cyan',
+        time: c.created_at ? c.created_at.split('T')[1]?.substring(0, 5) : '',
+        title: `Comment on ${c.target_title}`,
+        url: c.comment_url || c.target_url,
+        repo: c.repo,
+        author: c.author,
+        details: `"${c.body.substring(0, 100)}${c.body.length > 100 ? '...' : ''}"`
       });
     });
 
@@ -508,19 +575,19 @@
       });
     });
 
-    // Render Stats
     let totalReviews = 0;
     filteredPrs.forEach(p => { totalReviews += (p.reviews || []).length; });
     const workDaysCount = Object.keys(dailyMap).length;
 
     document.getElementById("statPrs").innerText = filteredPrs.length;
     document.getElementById("statApprovals").innerText = totalReviews;
+    document.getElementById("statComments").innerText = filteredComments.length;
     document.getElementById("statCommits").innerText = totalCommitsCount;
     document.getElementById("statDays").innerText = workDaysCount;
 
-    // Render Daily Work Breakdown Tab
+    // 1. Render Daily Tab
     const dailyContainer = document.getElementById("dailyTab");
-    const sortedDays = Object.keys(dailyMap).sort((a, b) => b.localeCompare(a)); // Newest first
+    const sortedDays = Object.keys(dailyMap).sort((a, b) => b.localeCompare(a));
 
     if (sortedDays.length === 0) {
       dailyContainer.innerHTML = "<div class='card'>No activity found in the selected date range.</div>";
@@ -560,7 +627,29 @@
       }).join('');
     }
 
-    // Render PRs
+    // 2. Render Comments Tab
+    const commentsContainer = document.getElementById("commentsTab");
+    if (filteredComments.length === 0) {
+      commentsContainer.innerHTML = "<div class='card'>No comments posted by the author in this selection and date range.</div>";
+    } else {
+      commentsContainer.innerHTML = filteredComments.map(c => `
+        <div class="list-item">
+          <div class="list-title">
+            <div>
+              <span class="code-tag">${c.repo}</span>
+              <a href="${c.comment_url || c.target_url}" target="_blank">${c.target_title}</a>
+              <span style="font-size: 13px; color: var(--text-muted); margin-left: 6px;">by <strong>@${c.author}</strong></span>
+            </div>
+            <span style="font-size:12px;color:var(--text-muted);">${new Date(c.created_at).toLocaleString()}</span>
+          </div>
+          <div class="comment-bubble">
+            ${c.body}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // 3. Render PRs Tab
     const prsContainer = document.getElementById("prsTab");
     if (filteredPrs.length === 0) {
       prsContainer.innerHTML = "<div class='card'>No pull requests found for the selected date range.</div>";
@@ -601,7 +690,7 @@
       }).join("");
     }
 
-    // Render Branches
+    // 4. Render Branches Tab
     const orphansContainer = document.getElementById("orphansTab");
     if (filteredBranches.length === 0) {
       orphansContainer.innerHTML = "<div class='card'>No non-default branches with commits in the selected date range.</div>";
@@ -641,7 +730,7 @@
       }).join("");
     }
 
-    // Render Issues
+    // 5. Render Issues Tab
     const issuesContainer = document.getElementById("issuesTab");
     if (filteredIssues.length === 0) {
       issuesContainer.innerHTML = "<div class='card'>No issues found for this selection in the selected date range.</div>";
@@ -674,11 +763,14 @@
     } else if (tab === "prs") {
       document.querySelectorAll(".tab-btn")[1].classList.add("active");
       document.getElementById("prsTab").style.display = "block";
-    } else if (tab === "orphans") {
+    } else if (tab === "comments") {
       document.querySelectorAll(".tab-btn")[2].classList.add("active");
+      document.getElementById("commentsTab").style.display = "block";
+    } else if (tab === "orphans") {
+      document.querySelectorAll(".tab-btn")[3].classList.add("active");
       document.getElementById("orphansTab").style.display = "block";
     } else if (tab === "issues") {
-      document.querySelectorAll(".tab-btn")[3].classList.add("active");
+      document.querySelectorAll(".tab-btn")[4].classList.add("active");
       document.getElementById("issuesTab").style.display = "block";
     }
   }
