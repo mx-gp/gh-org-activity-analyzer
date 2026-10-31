@@ -58,7 +58,6 @@ class GitHubAuthManager:
         payload_b64 = cls._b64url_encode(json.dumps(payload).encode("utf-8"))
         signing_input = f"{header_b64}.{payload_b64}".encode("utf-8")
 
-        # Sign using openssl CLI
         with tempfile.NamedTemporaryFile("w+", delete=False) as key_file:
             key_file.write(private_key_pem.strip() + "\n")
             key_path = key_file.name
@@ -103,6 +102,24 @@ class GitHubAuthManager:
             raise RuntimeError(f"GitHub App Token Exchange Failed ({e.code}): {err}")
 
     @classmethod
+    def get_authenticated_user_login(cls, token: str) -> Optional[str]:
+        """Fetch the username/login for the authenticated token."""
+        req = urllib.request.Request(
+            f"{GITHUB_API_URL}/user",
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/vnd.github.v3+json",
+                "User-Agent": "gh-org-activity-analyzer",
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                return data.get("login")
+        except Exception:
+            return None
+
+    @classmethod
     def resolve_token(
         cls,
         token_input: Optional[str] = None,
@@ -121,31 +138,41 @@ class GitHubAuthManager:
         # 1. GitHub App
         if app_id and private_key_pem and installation_id:
             inst_token = cls.get_app_installation_token(app_id, private_key_pem, installation_id)
+            login = cls.get_authenticated_user_login(inst_token)
             return inst_token, "GitHub App", {
                 "app_id": app_id,
                 "installation_id": installation_id,
-                "type": "App Installation Token"
+                "type": "App Installation Token",
+                "user_login": login,
             }
 
         # 2. Direct PAT token input
         if token_input and token_input.strip():
-            return token_input.strip(), "Personal Access Token (User Input)", {
-                "masked": f"{token_input[:4]}...{token_input[-4:]}" if len(token_input) > 8 else "***"
+            tok = token_input.strip()
+            login = cls.get_authenticated_user_login(tok)
+            return tok, "Personal Access Token (User Input)", {
+                "masked": f"{tok[:4]}...{tok[-4:]}" if len(tok) > 8 else "***",
+                "user_login": login,
             }
 
         # 3. Environment Variable
         env_token = os.environ.get("GITHUB_TOKEN")
         if env_token and env_token.strip():
-            return env_token.strip(), "Environment Variable (GITHUB_TOKEN)", {
-                "masked": f"{env_token[:4]}...{env_token[-4:]}" if len(env_token) > 8 else "***"
+            tok = env_token.strip()
+            login = cls.get_authenticated_user_login(tok)
+            return tok, "Environment Variable (GITHUB_TOKEN)", {
+                "masked": f"{tok[:4]}...{tok[-4:]}" if len(tok) > 8 else "***",
+                "user_login": login,
             }
 
         # 4. GitHub CLI
         gh_token = cls.get_gh_cli_token()
         if gh_token:
+            login = cls.get_authenticated_user_login(gh_token)
             return gh_token, "GitHub CLI (gh auth)", {
                 "cli": "gh",
-                "masked": f"{gh_token[:4]}...{gh_token[-4:]}" if len(gh_token) > 8 else "***"
+                "masked": f"{gh_token[:4]}...{gh_token[-4:]}" if len(gh_token) > 8 else "***",
+                "user_login": login,
             }
 
         raise ValueError(
@@ -155,18 +182,22 @@ class GitHubAuthManager:
     @classmethod
     def detect_available_methods(cls) -> Dict[str, Any]:
         """Detect which authentication methods are currently available in the environment."""
-        gh_cli_available = False
         gh_cli_token = cls.get_gh_cli_token()
-        if gh_cli_token:
-            gh_cli_available = True
+        gh_cli_user = cls.get_authenticated_user_login(gh_cli_token) if gh_cli_token else None
 
-        env_available = bool(os.environ.get("GITHUB_TOKEN"))
+        env_token = os.environ.get("GITHUB_TOKEN")
+        env_user = cls.get_authenticated_user_login(env_token) if env_token else None
+
+        active_user = gh_cli_user or env_user
 
         return {
             "github_cli": {
                 "installed": bool(shutil.which("gh")),
-                "authenticated": gh_cli_available,
+                "authenticated": bool(gh_cli_token),
+                "user": gh_cli_user,
             },
-            "environment_token": env_available,
+            "environment_token": bool(env_token),
+            "environment_user": env_user,
+            "detected_user": active_user,
             "github_app_supported": bool(shutil.which("openssl")),
         }
