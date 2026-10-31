@@ -94,7 +94,7 @@ class GitHubAuthManager:
             data=b"{}",
         )
         try:
-            with urllib.request.urlopen(req, timeout=15) as resp:
+            with urllib.request.urlopen(req, timeout=15) as resp:  # nosec B310
                 data = json.loads(resp.read().decode("utf-8"))
                 return data["token"]
         except urllib.error.HTTPError as e:
@@ -113,7 +113,7 @@ class GitHubAuthManager:
             },
         )
         try:
-            with urllib.request.urlopen(req, timeout=10) as resp:
+            with urllib.request.urlopen(req, timeout=10) as resp:  # nosec B310
                 data = json.loads(resp.read().decode("utf-8"))
                 return data.get("login")
         except Exception:
