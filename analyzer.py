@@ -34,39 +34,26 @@ class GitHubTargetScope:
             return (default_owner, None, "all_user_repos" if default_owner else "all")
 
         clean = target.strip()
-        # Remove trailing slashes and .git
         clean = re.sub(r"\.git/?$", "", clean)
         clean = clean.rstrip("/")
 
-        # Check for URL
         url_match = re.search(r"github\.com/([^/]+)/([^/]+)", clean)
         if url_match:
             return (url_match.group(1), url_match.group(2), "single_repo")
 
-        # Check for owner/repo
         if "/" in clean:
             parts = clean.split("/")
             if len(parts) == 2 and parts[0] and parts[1]:
                 return (parts[0], parts[1], "single_repo")
 
-        # Single word: could be a repo under default_owner, or an organization/user
         if default_owner and clean != default_owner:
-            # Check if user entered just the repository name
             return (default_owner, clean, "single_repo")
 
         return (clean, None, "org_or_user")
 
 
 class GitHubOrgActivityAnalyzer:
-    """Comprehensive analyzer for GitHub repositories, organizations, and user accounts.
-
-    Capabilities:
-    - Analyzes single repositories (URL or owner/repo) or all repos in an org/user scope
-    - Pull requests analysis with optional author filter
-    - Detailed review telemetry (who, review decisions, timestamps)
-    - Branch lifecycle auditing (identifies PR associations: merged/stale, open, unmerged, or never had PR)
-    - Issues by author or repository
-    """
+    """Comprehensive developer activity, code review, and branch telemetry analyzer."""
 
     def __init__(
         self,
@@ -112,8 +99,7 @@ class GitHubOrgActivityAnalyzer:
         return data.get("data", {})
 
     def get_repositories(self, include_forks: bool = False) -> List[Dict[str, Any]]:
-        """Dynamically list all targeted repositories (single repo or organization/user repos)."""
-        # Scenario 1: Specific single repository targeted
+        """Dynamically list all targeted repositories."""
         if self.owner and self.repo:
             url = f"{GITHUB_REST_API}/repos/{self.owner}/{self.repo}"
             try:
@@ -128,7 +114,6 @@ class GitHubOrgActivityAnalyzer:
                     }]
             except Exception:
                 pass
-            # Fallback representation
             return [{
                 "name": self.repo,
                 "owner": self.owner,
@@ -137,7 +122,6 @@ class GitHubOrgActivityAnalyzer:
                 "private": False,
             }]
 
-        # Scenario 2: Organization or User-wide scanning
         repos = []
         page = 1
         seen_names = set()
@@ -186,7 +170,7 @@ class GitHubOrgActivityAnalyzer:
         return repos
 
     def analyze_pull_requests(self, author_filter: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
-        """Audit PRs with optional author filter and analyze reviewers, decisions, and timestamps."""
+        """Audit PRs with reviewer decisions, turnaround timestamps, and lines modified."""
         query = """
         query($searchQuery: String!, $limit: Int!) {
           search(query: $searchQuery, type: ISSUE, first: $limit) {
@@ -226,7 +210,6 @@ class GitHubOrgActivityAnalyzer:
           }
         }
         """
-        # Build search query according to scope
         parts = ["type:pr"]
         if self.owner and self.repo:
             parts.append(f"repo:{self.owner}/{self.repo}")
@@ -261,7 +244,6 @@ class GitHubOrgActivityAnalyzer:
             repo_owner = repo_info.get("owner", {}).get("login", "")
             repo_name = repo_info.get("name", "")
             full_repo = f"{repo_owner}/{repo_name}" if repo_owner else repo_name
-
             author_login = pr.get("author", {}).get("login", "unknown") if pr.get("author") else "ghost"
 
             analyzed_prs.append({
@@ -273,6 +255,7 @@ class GitHubOrgActivityAnalyzer:
                 "state": pr["state"],
                 "created_at": pr["createdAt"],
                 "merged_at": pr["mergedAt"],
+                "closed_at": pr.get("closedAt"),
                 "lines_added": pr.get("additions", 0),
                 "lines_deleted": pr.get("deletions", 0),
                 "changed_files": pr.get("changedFiles", 0),
@@ -339,11 +322,97 @@ class GitHubOrgActivityAnalyzer:
             })
         return analyzed_issues
 
+    def analyze_author_comments(self, author_filter: Optional[str] = None, limit: int = 30) -> List[Dict[str, Any]]:
+        """Extract individual conversation and review discussion comments written by the author on PRs and Issues."""
+        parts = []
+        if self.owner and self.repo:
+            parts.append(f"repo:{self.owner}/{self.repo}")
+        elif self.is_org and self.owner:
+            parts.append(f"org:{self.owner}")
+        elif self.owner:
+            parts.append(f"user:{self.owner}")
+
+        if author_filter and author_filter.strip():
+            parts.append(f"commenter:{author_filter.strip()}")
+
+        if not parts:
+            return []
+
+        search_query = " ".join(parts)
+        query = """
+        query($searchQuery: String!, $limit: Int!) {
+          search(query: $searchQuery, type: ISSUE, first: $limit) {
+            issueCount
+            nodes {
+              ... on PullRequest {
+                number
+                title
+                url
+                repository { name, owner { login } }
+                comments(last: 20) {
+                  nodes {
+                    author { login }
+                    body
+                    createdAt
+                    url
+                  }
+                }
+              }
+              ... on Issue {
+                number
+                title
+                url
+                repository { name, owner { login } }
+                comments(last: 20) {
+                  nodes {
+                    author { login }
+                    body
+                    createdAt
+                    url
+                  }
+                }
+              }
+            }
+          }
+        }
+        """
+        res = self._graphql(query, {"searchQuery": search_query, "limit": limit})
+        nodes = res.get("search", {}).get("nodes", [])
+
+        user_filter_lower = author_filter.strip().lower() if author_filter else None
+        extracted_comments = []
+
+        for item in nodes:
+            repo_info = item.get("repository") or {}
+            repo_owner = repo_info.get("owner", {}).get("login", "")
+            repo_name = repo_info.get("name", "")
+            full_repo = f"{repo_owner}/{repo_name}" if repo_owner else repo_name
+            target_title = f"#{item.get('number')} {item.get('title')}"
+            target_url = item.get("url")
+
+            for c in item.get("comments", {}).get("nodes", []):
+                comm_author = c.get("author", {}).get("login", "unknown") if c.get("author") else "ghost"
+                if user_filter_lower and comm_author.lower() != user_filter_lower:
+                    continue
+
+                extracted_comments.append({
+                    "repo": full_repo,
+                    "target_title": target_title,
+                    "target_url": target_url,
+                    "author": comm_author,
+                    "comment_url": c.get("url"),
+                    "created_at": c.get("createdAt"),
+                    "body": c.get("body", "").strip(),
+                })
+
+        # Sort descending by date
+        extracted_comments.sort(key=lambda x: x.get("created_at") or "", reverse=True)
+        return extracted_comments
+
     def analyze_branches(
         self, repo_owner: str, repo_name: str, default_branch: str, user_filter: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """Detect branches, audit commits with optional author filter, and determine full PR relationship."""
-        # 1. Fetch all PRs to identify association
         all_prs_url = f"{GITHUB_REST_API}/repos/{repo_owner}/{repo_name}/pulls?state=all&per_page=100"
         prs_items = self._http_request(all_prs_url)
         pr_map = {}
@@ -359,7 +428,6 @@ class GitHubOrgActivityAnalyzer:
                         "url": pr.get("html_url"),
                     }
 
-        # 2. Fetch all branches
         branches_url = f"{GITHUB_REST_API}/repos/{repo_owner}/{repo_name}/branches?per_page=100"
         branches = self._http_request(branches_url)
         if not isinstance(branches, list):
@@ -385,7 +453,6 @@ class GitHubOrgActivityAnalyzer:
                 pr_status = "OPEN_PR"
                 status_label = f"Active Open PR #{associated_pr['number']}"
 
-            # 3. Retrieve commits on this branch
             commits_url = f"{GITHUB_REST_API}/repos/{repo_owner}/{repo_name}/commits?sha={urllib.parse.quote(branch_name)}&per_page=30"
             commits = self._http_request(commits_url)
             if not isinstance(commits, list):
@@ -461,6 +528,7 @@ def main():
     repos = analyzer.get_repositories()
     prs = analyzer.analyze_pull_requests(author_filter=args.author)
     issues = analyzer.analyze_issues(author_filter=args.author)
+    comments = analyzer.analyze_author_comments(author_filter=args.author)
 
     all_branches = []
     if args.include_branches:
@@ -481,6 +549,7 @@ def main():
         "auth_method": auth_method,
         "pull_requests": prs,
         "issues": issues,
+        "comments": comments,
         "branches": all_branches,
     }
 
@@ -496,26 +565,23 @@ def main():
     print(f"--- [1] PULL REQUESTS & REVIEW AUDIT ({len(prs)} found) ---")
     for pr in prs:
         print(f"\n* [{pr['repo']}] PR #{pr['number']} ({pr['state']}) by @{pr['author']}: {pr['title']}")
-        print(f"  URL: {pr['url']}")
         print(f"  Diff: +{pr['lines_added']} / -{pr['lines_deleted']} lines across {pr['changed_files']} files")
         if pr["reviews"]:
             print("  Reviews:")
             for r in pr["reviews"]:
                 print(f"    - @{r['reviewer']}: {r['state']} (at {r['submitted_at']})")
-        else:
-            print("  Reviews: No reviews yet")
-        if pr["pending_reviewers"]:
-            print(f"  Pending Requested Reviewers: {', '.join(pr['pending_reviewers'])}")
 
-    print(f"\n--- [2] ISSUES AUDIT ({len(issues)} found) ---")
+    print(f"\n--- [2] COMMENTS POSTED ({len(comments)} found) ---")
+    for c in comments:
+        print(f"* [{c['repo']}] On {c['target_title']} by @{c['author']}: {c['body'][:60]}... ({c['created_at']})")
+
+    print(f"\n--- [3] ISSUES AUDIT ({len(issues)} found) ---")
     for issue in issues:
         print(f"* [{issue['repo']}] Issue #{issue['number']} ({issue['state']}) by @{issue['author']}: {issue['title']}")
 
-    print(f"\n--- [3] BRANCHES AUDIT ({len(all_branches)} branches) ---")
+    print(f"\n--- [4] BRANCHES AUDIT ({len(all_branches)} branches) ---")
     for b in all_branches:
         print(f"\n* Repo: {b['repo']} | Branch: {b['branch']} [{b['status_label']}] ({b['matched_commits_count']} commits)")
-        for c in b["commits"][:5]:
-            print(f"    [{c['sha']}] {c['date']} by @{c['author']}: {c['message']}")
 
 
 if __name__ == "__main__":

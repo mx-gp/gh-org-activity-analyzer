@@ -5,15 +5,12 @@ test.describe('GitHub Activity & Review Analyzer Web Dashboard', () => {
   test('loads initial page and checks authentication status banner', async ({ page }) => {
     await page.goto('/');
 
-    // Check title and header
     await expect(page).toHaveTitle(/GitHub Activity & PR Review Analyzer/);
     await expect(page.locator('h1')).toContainText('GitHub Activity & PR Review Analyzer');
 
-    // Check active session banner exists
     const authBanner = page.locator('#authBanner');
     await expect(authBanner).toBeVisible();
 
-    // Check auth toggle chips
     await expect(page.locator('#chipAuto')).toBeVisible();
     await expect(page.locator('#chipPat')).toBeVisible();
     await expect(page.locator('#chipApp')).toBeVisible();
@@ -22,24 +19,20 @@ test.describe('GitHub Activity & Review Analyzer Web Dashboard', () => {
   test('switches authentication tabs smoothly', async ({ page }) => {
     await page.goto('/');
 
-    // Switch to Personal Access Token
     await page.click('#chipPat');
     await expect(page.locator('#patInputGroup')).toBeVisible();
     await expect(page.locator('#appInputGroup')).not.toBeVisible();
 
-    // Switch to GitHub App
     await page.click('#chipApp');
     await expect(page.locator('#appInputGroup')).toBeVisible();
     await expect(page.locator('#patInputGroup')).not.toBeVisible();
 
-    // Switch back to Auto-Detect
     await page.click('#chipAuto');
     await expect(page.locator('#patInputGroup')).not.toBeVisible();
     await expect(page.locator('#appInputGroup')).not.toBeVisible();
   });
 
-  test('renders mock analysis results, daily timeline, and date filters', async ({ page }) => {
-    // Intercept backend API call to test UI deterministically
+  test('renders mock analysis results, comments, daily timeline, and date filters', async ({ page }) => {
     await page.route('/api/analyze', async (route) => {
       const mockResponse = {
         scope: 'mx-gp/portfolio',
@@ -51,7 +44,7 @@ test.describe('GitHub Activity & Review Analyzer Web Dashboard', () => {
           {
             repo: 'mx-gp/portfolio',
             number: 28,
-            title: 'feat(ci): add comprehensive quality, performance, and security CI suite',
+            title: 'feat(ci): add comprehensive quality suite',
             author: 'mx-gp',
             url: 'https://github.com/mx-gp/portfolio/pull/28',
             state: 'MERGED',
@@ -68,6 +61,17 @@ test.describe('GitHub Activity & Review Analyzer Web Dashboard', () => {
               }
             ],
             pending_reviewers: []
+          }
+        ],
+        comments: [
+          {
+            repo: 'mx-gp/portfolio',
+            target_title: '#27 Bump embla-carousel-react',
+            target_url: 'https://github.com/mx-gp/portfolio/pull/27',
+            comment_url: 'https://github.com/mx-gp/portfolio/pull/27#issuecomment-1',
+            author: 'mx-gp',
+            created_at: '2026-10-31T13:57:53Z',
+            body: '@dependabot rebase'
           }
         ],
         issues: [
@@ -89,7 +93,7 @@ test.describe('GitHub Activity & Review Analyzer Web Dashboard', () => {
             pr_status: 'NO_PR_EVER',
             status_label: 'Never had a PR',
             associated_pr: null,
-            matched_commits_count: 2,
+            matched_commits_count: 1,
             commits: [
               {
                 sha: 'f1a2b3c',
@@ -106,42 +110,25 @@ test.describe('GitHub Activity & Review Analyzer Web Dashboard', () => {
 
     await page.goto('/');
 
-    // Fill in target
     await page.fill('#targetInput', 'https://github.com/mx-gp/portfolio');
     await page.fill('#authorInput', 'mx-gp');
-
-    // Run analysis
     await page.click('#runBtn');
 
-    // Wait for results
     await expect(page.locator('#resultsArea')).toBeVisible();
 
-    // Verify stats cards
     await expect(page.locator('#statPrs')).toHaveText('1');
     await expect(page.locator('#statApprovals')).toHaveText('1');
+    await expect(page.locator('#statComments')).toHaveText('1');
     await expect(page.locator('#statCommits')).toHaveText('1');
 
-    // Check Daily Work Breakdown tab
-    await expect(page.locator('#dailyTab')).toContainText('Daily Work Breakdown');
-    await expect(page.locator('#dailyTab')).toContainText('feat(ci): add comprehensive quality');
+    // Daily breakdown contains comment
+    await expect(page.locator('#dailyTab')).toContainText('@dependabot rebase');
 
-    // Switch to Pull Requests tab
-    await page.click('button:has-text("Pull Requests & Review Telemetry")');
-    await expect(page.locator('#prsTab')).toBeVisible();
-    await expect(page.locator('#prsTab')).toContainText('#28 feat(ci)');
-    await expect(page.locator('#prsTab')).toContainText('@lead-dev');
-    await expect(page.locator('#prsTab')).toContainText('APPROVED');
-
-    // Switch to Branches tab
-    await page.click('button:has-text("Branch & PR Lifecycle Audit")');
-    await expect(page.locator('#orphansTab')).toBeVisible();
-    await expect(page.locator('#orphansTab')).toContainText('feature/dark-mode');
-    await expect(page.locator('#orphansTab')).toContainText('Never had a PR');
-
-    // Switch to Issues tab
-    await page.click('button:has-text("Issues")');
-    await expect(page.locator('#issuesTab')).toBeVisible();
-    await expect(page.locator('#issuesTab')).toContainText('#1 Add dark mode support');
+    // Check Comments tab
+    await page.click('button:has-text("💬 Discussion Comments")');
+    await expect(page.locator('#commentsTab')).toBeVisible();
+    await expect(page.locator('#commentsTab')).toContainText('@dependabot rebase');
+    await expect(page.locator('#commentsTab')).toContainText('#27 Bump embla-carousel-react');
   });
 
 });

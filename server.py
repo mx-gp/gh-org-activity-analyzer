@@ -76,6 +76,7 @@ class AnalyzerHTTPHandler(http.server.BaseHTTPRequestHandler):
                 repos = analyzer.get_repositories()
                 prs = analyzer.analyze_pull_requests(author_filter=author_filter)
                 issues = analyzer.analyze_issues(author_filter=author_filter)
+                comments = analyzer.analyze_author_comments(author_filter=author_filter)
 
                 all_branches = []
                 if include_branches:
@@ -100,6 +101,7 @@ class AnalyzerHTTPHandler(http.server.BaseHTTPRequestHandler):
                     "auth_details": meta,
                     "pull_requests": prs,
                     "issues": issues,
+                    "comments": comments,
                     "branches_without_pr": all_branches,
                 }
 
