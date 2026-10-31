@@ -116,8 +116,9 @@ class AnalyzerHTTPHandler(http.server.BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def log_message(self, format, *args):
-        # Clean logging
-        sys.stderr.write(f"[{self.log_date_time_string()}] {args[0]} {args[1]} {args[2]}\n")
+        # Format can receive 3 args (like 'GET / 200') or 2 args (like 'code %d, message %s' from log_error)
+        msg = format % args if args else format
+        sys.stderr.write(f"[{self.log_date_time_string()}] {self.address_string()} {msg}\n")
 
 
 def run_server(port=PORT):
