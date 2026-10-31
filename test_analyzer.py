@@ -71,7 +71,7 @@ class TestGitHubOrgActivityAnalyzer(unittest.TestCase):
 
         def mock_http_request(url, **kwargs):
             if "/pulls" in url:
-                return [{"head": {"ref": "feature/branch-with-pr"}}]
+                return [{"head": {"ref": "feature/branch-with-pr"}, "number": 10, "state": "open", "merged_at": None, "html_url": "http://pr"}]
             elif "/branches" in url:
                 return [
                     {"name": "main"},
@@ -101,17 +101,20 @@ class TestGitHubOrgActivityAnalyzer(unittest.TestCase):
 
         analyzer._http_request = MagicMock(side_effect=mock_http_request)
 
-        unlinked = analyzer.analyze_branches_without_prs(
+        branches = analyzer.analyze_branches_without_prs(
             repo="backend", default_branch="main", user_filter="alice"
         )
 
-        self.assertEqual(len(unlinked), 1)
-        branch = unlinked[0]
-        self.assertEqual(branch["repo"], "backend")
-        self.assertEqual(branch["branch"], "feature/orphan-branch")
-        self.assertEqual(branch["matched_commits_count"], 1)
-        self.assertEqual(branch["commits"][0]["author"], "alice")
-        self.assertEqual(branch["commits"][0]["sha"], "abc1234")
+        # Both branches have commits by alice, but their PR status is distinguished
+        self.assertEqual(len(branches), 2)
+        orphan_branch = [b for b in branches if b["branch"] == "feature/orphan-branch"][0]
+        self.assertEqual(orphan_branch["pr_status"], "NO_PR_EVER")
+        self.assertEqual(orphan_branch["matched_commits_count"], 1)
+        self.assertEqual(orphan_branch["commits"][0]["author"], "alice")
+        self.assertEqual(orphan_branch["commits"][0]["sha"], "abc1234")
+
+        active_pr_branch = [b for b in branches if b["branch"] == "feature/branch-with-pr"][0]
+        self.assertEqual(active_pr_branch["pr_status"], "OPEN_PR")
 
 
 if __name__ == "__main__":

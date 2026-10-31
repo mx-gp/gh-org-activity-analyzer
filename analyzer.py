@@ -66,29 +66,52 @@ class GitHubOrgActivityAnalyzer:
         """Dynamically list all active repositories across the organization or user account."""
         repos = []
         page = 1
+        seen_names = set()
+
         while True:
             if self.org:
                 url = f"{GITHUB_REST_API}/orgs/{self.org}/repos?type=all&per_page=100&page={page}"
-            elif self.user:
-                url = f"{GITHUB_REST_API}/users/{self.user}/repos?type=all&per_page=100&page={page}"
             else:
-                # Target authenticated user's own repositories
-                url = f"{GITHUB_REST_API}/user/repos?type=all&per_page=100&page={page}"
+                # If personal user scope: fetch all repositories accessible to the user (including private & affiliated)
+                url = f"{GITHUB_REST_API}/user/repos?affiliation=owner,collaborator,organization_member&per_page=100&page={page}"
 
             items = self._http_request(url)
             if not items or not isinstance(items, list):
-                break
+                # If /user/repos fails or returns empty because token is unauthenticated, fallback to public /users/{user}/repos
+                if not self.org and self.user and page == 1:
+                    fallback_url = f"{GITHUB_REST_API}/users/{self.user}/repos?type=all&per_page=100&page=1"
+                    items = self._http_request(fallback_url)
+                    if not items or not isinstance(items, list):
+                        break
+                else:
+                    break
+
             for repo in items:
+                repo_owner = repo.get("owner", {}).get("login", "")
+                # If scoped to a specific user, filter to that owner
+                if self.user and repo_owner.lower() != self.user.lower():
+                    continue
+
                 if repo.get("archived"):
                     continue
                 if not include_forks and repo.get("fork"):
                     continue
+
+                repo_name = repo["name"]
+                if repo_name in seen_names:
+                    continue
+                seen_names.add(repo_name)
+
                 repos.append({
-                    "name": repo["name"],
+                    "name": repo_name,
+                    "owner": repo_owner,
+                    "full_name": repo.get("full_name", f"{repo_owner}/{repo_name}"),
                     "default_branch": repo.get("default_branch", "main"),
                     "private": repo.get("private", False),
                 })
             page += 1
+            if len(items) < 100:
+                break
         return repos
 
     def analyze_pull_requests(self, author: str, limit: int = 50) -> List[Dict[str, Any]]:
@@ -211,20 +234,26 @@ class GitHubOrgActivityAnalyzer:
     def analyze_branches_without_prs(
         self, repo: str, default_branch: str, user_filter: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        """Detect branches lacking PRs and audit commits by user/author filter."""
+        """Detect branches lacking PRs or having unmerged work, with full PR association audit."""
         owner = self.target_owner
         if not owner:
-            # Fallback to repo if repo already contains owner/repo, else skip
             return []
 
-        # 1. Fetch active PR head branches for this repo
-        open_prs_url = f"{GITHUB_REST_API}/repos/{owner}/{repo}/pulls?state=open&per_page=100"
-        open_prs = self._http_request(open_prs_url)
-        open_pr_heads = set()
-        if isinstance(open_prs, list):
-            for pr in open_prs:
-                if pr.get("head") and pr["head"].get("ref"):
-                    open_pr_heads.add(pr["head"]["ref"])
+        # 1. Fetch all PRs (both open and closed) to map branch relationship accurately
+        all_prs_url = f"{GITHUB_REST_API}/repos/{owner}/{repo}/pulls?state=all&per_page=100"
+        prs_items = self._http_request(all_prs_url)
+        pr_map = {}
+        if isinstance(prs_items, list):
+            for pr in prs_items:
+                head_ref = pr.get("head", {}).get("ref")
+                if head_ref and head_ref not in pr_map:
+                    pr_map[head_ref] = {
+                        "number": pr.get("number"),
+                        "title": pr.get("title"),
+                        "state": pr.get("state"),
+                        "is_merged": bool(pr.get("merged_at")),
+                        "url": pr.get("html_url"),
+                    }
 
         # 2. Fetch all branches
         branches_url = f"{GITHUB_REST_API}/repos/{owner}/{repo}/branches?per_page=100"
@@ -232,11 +261,31 @@ class GitHubOrgActivityAnalyzer:
         if not isinstance(branches, list):
             return []
 
-        orphan_branches = []
+        audit_branches = []
         for b in branches:
             branch_name = b["name"]
-            if branch_name == default_branch or branch_name in open_pr_heads:
+            if branch_name == default_branch:
                 continue
+
+            associated_pr = pr_map.get(branch_name)
+            
+            # Determine branch status:
+            # - "NO_PR_EVER": Branch has never had a PR created for it
+            # - "CLOSED_UNMERGED": PR was closed without merging
+            # - "MERGED_STALE": PR was merged, but branch was not deleted
+            # - "OPEN_PR": Currently has an active open PR
+            if not associated_pr:
+                pr_status = "NO_PR_EVER"
+                status_label = "Never had a PR"
+            elif associated_pr["is_merged"]:
+                pr_status = "MERGED_STALE"
+                status_label = f"PR #{associated_pr['number']} Merged (Branch not deleted)"
+            elif associated_pr["state"] == "closed":
+                pr_status = "CLOSED_UNMERGED"
+                status_label = f"PR #{associated_pr['number']} Closed Unmerged"
+            else:
+                pr_status = "OPEN_PR"
+                status_label = f"Active Open PR #{associated_pr['number']}"
 
             # 3. Retrieve commits on this branch
             commits_url = f"{GITHUB_REST_API}/repos/{owner}/{repo}/commits?sha={urllib.parse.quote(branch_name)}&per_page=30"
@@ -263,14 +312,17 @@ class GitHubOrgActivityAnalyzer:
                 })
 
             if matched_commits:
-                orphan_branches.append({
+                audit_branches.append({
                     "repo": repo,
                     "branch": branch_name,
+                    "pr_status": pr_status,
+                    "status_label": status_label,
+                    "associated_pr": associated_pr,
                     "matched_commits_count": len(matched_commits),
                     "commits": matched_commits,
                 })
 
-        return orphan_branches
+        return audit_branches
 
 
 def main():
@@ -369,10 +421,10 @@ def main():
 
     if args.include_branches_without_pr:
         unlinked = output.get("branches_without_pr", [])
-        print(f"\n--- [3] BRANCHES WITHOUT PRS ({len(unlinked)} branches with commits by @{args.author}) ---")
+        print(f"\n--- [3] BRANCHES AUDIT ({len(unlinked)} branches containing commits by @{args.author}) ---")
         for b in unlinked:
-            print(f"\n* Repo: {b['repo']} | Branch: {b['branch']} ({b['matched_commits_count']} commits)")
-            for c in b["commits"]:
+            print(f"\n* Repo: {b['repo']} | Branch: {b['branch']} [{b['status_label']}] ({b['matched_commits_count']} commits)")
+            for c in b["commits"][:10]:
                 print(f"    [{c['sha']}] {c['date']} by @{c['author']}: {c['message']}")
 
 
