@@ -30,6 +30,12 @@ An open-source, zero-external-dependency developer telemetry and code review aud
   - **Auto-Detect**: Seamless GitHub CLI session (`gh auth token`) or `GITHUB_TOKEN` environment variable.
   - **GitHub App**: Enterprise-grade App ID + Installation ID + `.pem` private key authentication.
   - **Personal Access Token**: Interactive web form entry.
+- **📊 Visual Velocity & Mix Charts**:
+  - Daily Contribution Velocity bar chart (PRs opened, merged, reviews submitted, branch commits) and Contribution & Review Mix proportion meter.
+- **💬 Discussion & Review Comments Extraction**:
+  - Tracks specific PR/Issue discussion comments, review commentary, turnaround times, and author participation across organizations.
+- **📥 One-Click JSON Export**:
+  - Export audit datasets directly from the web dashboard or CLI for offline reporting, data warehousing, or spreadsheet analysis.
 - **⚡ Zero External Backend Dependencies**:
   - Built with pure standard Python 3 (`urllib`, `json`, `argparse`, `unittest`).
 
@@ -40,7 +46,7 @@ An open-source, zero-external-dependency developer telemetry and code review aud
 ### Option 1: Web Dashboard (Interactive Frontend)
 
 ```bash
-git clone https://github.com/octocat/gh-org-activity-analyzer.git
+git clone https://github.com/mx-gp/gh-org-activity-analyzer.git
 cd gh-org-activity-analyzer
 
 # Start the web server (uses Python 3 builtin http.server)
