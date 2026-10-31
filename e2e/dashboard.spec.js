@@ -32,7 +32,7 @@ test.describe('GitHub Activity & Review Analyzer Web Dashboard', () => {
     await expect(page.locator('#appInputGroup')).not.toBeVisible();
   });
 
-  test('renders mock analysis results, comments, daily timeline, and date filters', async ({ page }) => {
+  test('renders mock analysis results, comments, daily timeline, and graphs', async ({ page }) => {
     await page.route('/api/analyze', async (route) => {
       const mockResponse = {
         scope: 'mx-gp/portfolio',
@@ -116,19 +116,34 @@ test.describe('GitHub Activity & Review Analyzer Web Dashboard', () => {
 
     await expect(page.locator('#resultsArea')).toBeVisible();
 
+    // Verify stats cards
     await expect(page.locator('#statPrs')).toHaveText('1');
     await expect(page.locator('#statApprovals')).toHaveText('1');
     await expect(page.locator('#statComments')).toHaveText('1');
     await expect(page.locator('#statCommits')).toHaveText('1');
 
-    // Daily breakdown contains comment
+    // Verify Visual Analytics & Graphs are rendered
+    const velocityBarChart = page.locator('#velocityBarChart');
+    await expect(velocityBarChart).toBeVisible();
+    await expect(velocityBarChart.locator('.bar-column')).toHaveCount(1);
+
+    const mixContainer = page.locator('#mixContainer');
+    await expect(mixContainer).toBeVisible();
+    await expect(mixContainer).toContainText('Pull Requests');
+    await expect(mixContainer).toContainText('Branch Commits');
+
+    // Verify Daily Work Breakdown timeline
     await expect(page.locator('#dailyTab')).toContainText('@dependabot rebase');
 
-    // Check Comments tab
+    // Switch to Comments tab
     await page.click('button:has-text("💬 Discussion Comments")');
     await expect(page.locator('#commentsTab')).toBeVisible();
     await expect(page.locator('#commentsTab')).toContainText('@dependabot rebase');
     await expect(page.locator('#commentsTab')).toContainText('#27 Bump embla-carousel-react');
+
+    // Test quick date preset interaction
+    await page.click('button:has-text("Today")');
+    await expect(page.locator('#resultsArea')).toBeVisible();
   });
 
 });
