@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GitHub Org Activity & PR Review Analyzer</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card-bg: #161b22;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --text-muted: #8b949e;
+      --accent: #58a6ff;
+      --success: #238636;
+      --success-text: #3fb950;
+      --warning: #d29922;
+      --danger: #f85149;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+    body { background: var(--bg); color: var(--text); padding: 24px; line-height: 1.5; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    header { margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+    h1 { font-size: 24px; font-weight: 600; }
+    .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+    .grid-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; align-items: flex-end; }
+    .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text-muted); }
+    .form-group input { width: 100%; padding: 10px 12px; background: #010409; border: 1px solid var(--border); border-radius: 6px; color: #fff; font-size: 14px; }
+    .checkbox-group { display: flex; align-items: center; gap: 8px; font-size: 14px; margin-top: 10px; }
+    button { background: var(--success); color: #fff; border: none; padding: 10px 20px; font-weight: 600; border-radius: 6px; cursor: pointer; transition: 0.2s; font-size: 14px; }
+    button:hover { background: #2ea043; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 24px; }
+    .stat-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px; text-align: center; }
+    .stat-val { font-size: 28px; font-weight: 700; color: #fff; }
+    .stat-lbl { font-size: 12px; color: var(--text-muted); text-transform: uppercase; margin-top: 4px; }
+    .tabs { display: flex; gap: 12px; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+    .tab-btn { background: none; border: none; color: var(--text-muted); padding: 10px 16px; font-size: 14px; font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; }
+    .tab-btn.active { color: var(--accent); border-bottom: 2px solid var(--accent); }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+    .badge-open { background: rgba(63, 185, 80, 0.15); color: var(--success-text); border: 1px solid rgba(63, 185, 80, 0.4); }
+    .badge-merged { background: rgba(163, 113, 247, 0.15); color: #bc8cff; border: 1px solid rgba(163, 113, 247, 0.4); }
+    .badge-closed { background: rgba(248, 81, 73, 0.15); color: var(--danger); border: 1px solid rgba(248, 81, 73, 0.4); }
+    .badge-approved { background: rgba(63, 185, 80, 0.2); color: var(--success-text); }
+    .badge-changes { background: rgba(248, 81, 73, 0.2); color: var(--danger); }
+    .badge-comment { background: rgba(210, 153, 34, 0.2); color: var(--warning); }
+    .list-item { background: #0d1117; border: 1px solid var(--border); border-radius: 6px; padding: 14px 18px; margin-bottom: 12px; }
+    .list-title { display: flex; justify-content: space-between; align-items: baseline; font-weight: 600; font-size: 16px; margin-bottom: 6px; }
+    .list-title a { color: var(--accent); text-decoration: none; }
+    .list-title a:hover { text-decoration: underline; }
+    .reviewers-list { margin-top: 10px; padding: 10px; background: #161b22; border-radius: 6px; font-size: 13px; }
+    .reviewer-pill { display: inline-flex; align-items: center; gap: 6px; margin-right: 12px; margin-top: 4px; }
+    .code-tag { background: rgba(110, 118, 129, 0.4); padding: 2px 6px; border-radius: 4px; font-family: monospace; font-size: 12px; }
+    .loader { display: none; text-align: center; padding: 30px; font-size: 16px; color: var(--accent); }
+  </style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>🔎 GitHub Organization Activity & PR Review Analyzer</h1>
+  </header>
+
+  <div class="card">
+    <div class="grid-form">
+      <div class="form-group">
+        <label for="orgInput">Organization Name</label>
+        <input type="text" id="orgInput" placeholder="e.g. google, facebook, my-org" required>
+      </div>
+      <div class="form-group">
+        <label for="authorInput">Author / Member Handle</label>
+        <input type="text" id="authorInput" placeholder="e.g. octocat" required>
+      </div>
+      <div class="form-group">
+        <label for="tokenInput">GitHub Token (optional if set in backend)</label>
+        <input type="password" id="tokenInput" placeholder="ghp_...">
+      </div>
+      <div>
+        <button id="runBtn" onclick="runAnalysis()">Analyze Activity</button>
+      </div>
+    </div>
+    <div class="checkbox-group">
+      <input type="checkbox" id="checkUnlinked" checked>
+      <label for="checkUnlinked">Analyze branches without PRs (scan unmerged commits)</label>
+    </div>
+  </div>
+
+  <div id="loader" class="loader">⏳ Querying GitHub GraphQL & REST API dynamically across organization repositories...</div>
+
+  <div id="resultsArea" style="display: none;">
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-val" id="statPrs">0</div>
+        <div class="stat-lbl">Pull Requests</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="statApprovals">0</div>
+        <div class="stat-lbl">Reviews Audited</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="statIssues">0</div>
+        <div class="stat-lbl">Issues Opened</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="statOrphans">0</div>
+        <div class="stat-lbl">Branches Without PRs</div>
+      </div>
+    </div>
+
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('prs')">Pull Requests & Review Telemetry</button>
+      <button class="tab-btn" onclick="switchTab('orphans')">Branches Without PRs</button>
+      <button class="tab-btn" onclick="switchTab('issues')">Issues</button>
+    </div>
+
+    <div id="prsTab" class="tab-content"></div>
+    <div id="orphansTab" class="tab-content" style="display: none;"></div>
+    <div id="issuesTab" class="tab-content" style="display: none;"></div>
+  </div>
+</div>
+
+<script>
+  let reportData = null;
+
+  async function runAnalysis() {
+    const org = document.getElementById("orgInput").value.trim();
+    const author = document.getElementById("authorInput").value.trim();
+    const token = document.getElementById("tokenInput").value.trim();
+    const checkUnlinked = document.getElementById("checkUnlinked").checked;
+
+    if (!org || !author) {
+      alert("Please specify both Organization and Author.");
+      return;
+    }
+
+    const loader = document.getElementById("loader");
+    const results = document.getElementById("resultsArea");
+    const runBtn = document.getElementById("runBtn");
+
+    loader.style.display = "block";
+    results.style.display = "none";
+    runBtn.disabled = true;
+
+    try {
+      const resp = await fetch("/api/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          org: org,
+          author: author,
+          token: token,
+          include_branches_without_pr: checkUnlinked
+        })
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || "Analysis failed");
+
+      reportData = data;
+      renderReport(data);
+    } catch (err) {
+      alert("Error: " + err.message);
+    } finally {
+      loader.style.display = "none";
+      runBtn.disabled = false;
+    }
+  }
+
+  function renderReport(data) {
+    document.getElementById("resultsArea").style.display = "block";
+
+    const prs = data.pull_requests || [];
+    const issues = data.issues || [];
+    const orphans = data.branches_without_pr || [];
+
+    let totalReviews = 0;
+    prs.forEach(p => { totalReviews += (p.reviews || []).length; });
+
+    document.getElementById("statPrs").innerText = prs.length;
+    document.getElementById("statApprovals").innerText = totalReviews;
+    document.getElementById("statIssues").innerText = issues.length;
+    document.getElementById("statOrphans").innerText = orphans.length;
+
+    // Render PRs
+    const prsContainer = document.getElementById("prsTab");
+    if (prs.length === 0) {
+      prsContainer.innerHTML = "<div class='card'>No pull requests found for this author in the organization.</div>";
+    } else {
+      prsContainer.innerHTML = prs.map(pr => {
+        const badgeClass = pr.state === "OPEN" ? "badge-open" : pr.state === "MERGED" ? "badge-merged" : "badge-closed";
+        const reviewsHtml = (pr.reviews && pr.reviews.length > 0)
+          ? pr.reviews.map(r => {
+              const stateClass = r.state === "APPROVED" ? "badge-approved" : r.state === "CHANGES_REQUESTED" ? "badge-changes" : "badge-comment";
+              return `<div class="reviewer-pill">👤 <strong>@${r.reviewer}</strong> <span class="badge ${stateClass}">${r.state}</span> <span style="color:var(--text-muted);font-size:11px;">(${new Date(r.submitted_at).toLocaleDateString()})</span></div>`;
+            }).join("")
+          : "<span style='color:var(--text-muted)'>No reviews submitted yet</span>";
+
+        const pendingHtml = (pr.pending_reviewers && pr.pending_reviewers.length > 0)
+          ? `<div style="margin-top:6px;font-size:12px;color:var(--warning)">⏳ Pending reviewers: ${pr.pending_reviewers.map(p => '@' + p).join(', ')}</div>`
+          : "";
+
+        return `
+          <div class="list-item">
+            <div class="list-title">
+              <div>
+                <span class="code-tag">${pr.repo}</span>
+                <a href="${pr.url}" target="_blank">#${pr.number} ${pr.title}</a>
+              </div>
+              <span class="badge ${badgeClass}">${pr.state}</span>
+            </div>
+            <div style="font-size: 13px; color: var(--text-muted);">
+              Diff: +${pr.lines_added} / -${pr.lines_deleted} lines across ${pr.changed_files} files | Created: ${new Date(pr.created_at).toLocaleDateString()}
+            </div>
+            <div class="reviewers-list">
+              <strong>Review Audit:</strong>
+              <div style="margin-top:4px;">${reviewsHtml}</div>
+              ${pendingHtml}
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+
+    // Render Branches without PRs
+    const orphansContainer = document.getElementById("orphansTab");
+    if (orphans.length === 0) {
+      orphansContainer.innerHTML = "<div class='card'>No unlinked branches found containing commits by this author.</div>";
+    } else {
+      orphansContainer.innerHTML = orphans.map(o => `
+        <div class="list-item">
+          <div class="list-title">
+            <div>
+              <span class="code-tag">${o.repo}</span>
+              <span>Branch: <strong>${o.branch}</strong></span>
+            </div>
+            <span class="badge badge-changes">${o.matched_commits_count} commits by author</span>
+          </div>
+          <div style="margin-top: 8px;">
+            ${o.commits.map(c => `
+              <div style="font-size:12px; margin-top:4px; color:var(--text-muted);">
+                <span class="code-tag">${c.sha}</span> <strong>@${c.author}</strong> - ${c.message} <span style="font-size:11px;">(${c.date})</span>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      `).join("");
+    }
+
+    // Render Issues
+    const issuesContainer = document.getElementById("issuesTab");
+    if (issues.length === 0) {
+      issuesContainer.innerHTML = "<div class='card'>No issues found for this author.</div>";
+    } else {
+      issuesContainer.innerHTML = issues.map(i => `
+        <div class="list-item">
+          <div class="list-title">
+            <div>
+              <span class="code-tag">${i.repo}</span>
+              <a href="${i.url}" target="_blank">#${i.number} ${i.title}</a>
+            </div>
+            <span class="badge ${i.state === 'OPEN' ? 'badge-open' : 'badge-closed'}">${i.state}</span>
+          </div>
+          <div style="font-size:13px; color:var(--text-muted);">
+            Comments: ${i.comments_count} | Created: ${new Date(i.created_at).toLocaleDateString()}
+          </div>
+        </div>
+      `).join("");
+    }
+  }
+
+  function switchTab(tab) {
+    document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".tab-content").forEach(c => c.style.display = "none");
+
+    if (tab === "prs") {
+      document.querySelectorAll(".tab-btn")[0].classList.add("active");
+      document.getElementById("prsTab").style.display = "block";
+    } else if (tab === "orphans") {
+      document.querySelectorAll(".tab-btn")[1].classList.add("active");
+      document.getElementById("orphansTab").style.display = "block";
+    } else if (tab === "issues") {
+      document.querySelectorAll(".tab-btn")[2].classList.add("active");
+      document.getElementById("issuesTab").style.display = "block";
+    }
+  }
+</script>
+</body>
+</html>
