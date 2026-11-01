@@ -60,7 +60,32 @@ test.describe('GitHub Activity & Review Analyzer Web Dashboard', () => {
                 submitted_at: '2026-10-31T12:30:00Z'
               }
             ],
-            pending_reviewers: []
+            pending_reviewers: [],
+            unresolved_threads_count: 1,
+            resolved_threads_count: 0,
+            reviewer_unresolved_counts: {
+              'lead-dev': 1
+            },
+            review_threads: [
+              {
+                id: 'th_1',
+                is_resolved: false,
+                is_outdated: false,
+                path: 'src/ci.py',
+                line: 25,
+                thread_initiator: 'lead-dev',
+                last_commenter: 'lead-dev',
+                waiting_on: 'author',
+                comments: [
+                  {
+                    author: 'lead-dev',
+                    body: 'Please double-check timeout parameter',
+                    created_at: '2026-10-31T12:35:00Z',
+                    url: 'https://github.com/octocat/my-repo/pull/28#discussion_r123'
+                  }
+                ]
+              }
+            ]
           }
         ],
         comments: [
@@ -120,9 +145,23 @@ test.describe('GitHub Activity & Review Analyzer Web Dashboard', () => {
     await expect(page.locator('#statApprovals')).toHaveText('1');
     await expect(page.locator('#statComments')).toHaveText('1');
     await expect(page.locator('#statCommits')).toHaveText('1');
+    await expect(page.locator('#statUnresolved')).toHaveText('1');
 
     // Daily breakdown contains comment
     await expect(page.locator('#dailyTab')).toContainText('@dependabot rebase');
+
+    // Check PRs tab displays unresolved review thread badges
+    await page.click('button:has-text("Pull Requests & Review Telemetry")');
+    await expect(page.locator('#prsTab')).toBeVisible();
+    await expect(page.locator('#prsTab')).toContainText('1 Unresolved Thread');
+    await expect(page.locator('#prsTab')).toContainText('@lead-dev: 1 pending');
+
+    // Check Review Threads & Debt tab
+    await page.click('button:has-text("💬 Review Threads & Debt")');
+    await expect(page.locator('#threadsTab')).toBeVisible();
+    await expect(page.locator('#threadsTab')).toContainText('Review Debt Observability Matrix');
+    await expect(page.locator('#threadsTab')).toContainText('@lead-dev');
+    await expect(page.locator('#threadsTab')).toContainText('Please double-check timeout parameter');
 
     // Check Comments tab
     await page.click('button:has-text("💬 Discussion Comments")');

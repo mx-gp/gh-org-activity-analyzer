@@ -24,6 +24,10 @@ An open-source, zero-external-dependency developer telemetry and code review aud
   - Presets for **Today**, **Past 7 Days**, **Past 30 Days**, or custom **From / To** date pickers.
 - **🧐 Deep Pull Request & Review Audit**:
   - Color-coded review badges (`APPROVED`, `CHANGES_REQUESTED`, `COMMENTED`), reviewer handles, timestamps, and diff additions/deletions.
+- **💬 Review Observability & Debt Tracker**:
+  - Tracks unresolved inline discussion threads by PR author and reviewer.
+  - Automatically identifies who needs to take action: *Waiting on Author* vs. *Waiting on Reviewer to Verify & Resolve*.
+  - Displays dedicated **Review Debt Observability Matrix** on the dashboard.
 - **🌿 Branch & PR Lifecycle Telemetry**:
   - Detects true orphan branches (`Never had a PR`), merged stale branches (`PR Merged, branch not deleted`), closed unmerged work, and active PRs.
 - **🔐 Multi-Source Seamless Authentication**:
