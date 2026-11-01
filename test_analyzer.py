@@ -67,6 +67,46 @@ class TestGitHubOrgActivityAnalyzer(unittest.TestCase):
                                 {"requestedReviewer": {"login": "dave"}}
                             ]
                         },
+                        "reviewThreads": {
+                            "nodes": [
+                                {
+                                    "id": "thread_1",
+                                    "isResolved": False,
+                                    "isOutdated": False,
+                                    "path": "auth.py",
+                                    "line": 42,
+                                    "comments": {
+                                        "nodes": [
+                                            {
+                                                "id": "c1",
+                                                "author": {"login": "carol"},
+                                                "body": "Check token expiration edge case",
+                                                "createdAt": "2026-03-01T11:00:00Z",
+                                                "url": "https://github.com/test-org/repo1/pull/42#r1",
+                                            }
+                                        ]
+                                    },
+                                },
+                                {
+                                    "id": "thread_2",
+                                    "isResolved": True,
+                                    "isOutdated": False,
+                                    "path": "main.py",
+                                    "line": 10,
+                                    "comments": {
+                                        "nodes": [
+                                            {
+                                                "id": "c2",
+                                                "author": {"login": "bob"},
+                                                "body": "Typo in comment",
+                                                "createdAt": "2026-03-01T11:30:00Z",
+                                                "url": "https://github.com/test-org/repo1/pull/42#r2",
+                                            }
+                                        ]
+                                    },
+                                },
+                            ]
+                        },
                     }
                 ],
             }
@@ -83,6 +123,15 @@ class TestGitHubOrgActivityAnalyzer(unittest.TestCase):
         self.assertEqual(len(pr["reviews"]), 1)
         self.assertEqual(pr["reviews"][0]["reviewer"], "bob")
         self.assertEqual(pr["reviews"][0]["state"], "APPROVED")
+
+        # Verify unresolved review threads observability
+        self.assertEqual(pr["unresolved_threads_count"], 1)
+        self.assertEqual(pr["resolved_threads_count"], 1)
+        self.assertEqual(len(pr["review_threads"]), 2)
+        self.assertEqual(pr["reviewer_unresolved_counts"], {"carol": 1})
+        unresolved_thread = [t for t in pr["review_threads"] if not t["is_resolved"]][0]
+        self.assertEqual(unresolved_thread["thread_initiator"], "carol")
+        self.assertEqual(unresolved_thread["waiting_on"], "author")
 
 
 if __name__ == "__main__":

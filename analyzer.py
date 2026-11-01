@@ -208,6 +208,25 @@ class GitHubOrgActivityAnalyzer:
                     }
                   }
                 }
+                reviewThreads(first: 50) {
+                  totalCount
+                  nodes {
+                    id
+                    isResolved
+                    isOutdated
+                    path
+                    line
+                    comments(first: 10) {
+                      nodes {
+                        id
+                        author { login }
+                        body
+                        createdAt
+                        url
+                      }
+                    }
+                  }
+                }
               }
             }
           }
@@ -249,6 +268,58 @@ class GitHubOrgActivityAnalyzer:
             full_repo = f"{repo_owner}/{repo_name}" if repo_owner else repo_name
             author_login = pr.get("author", {}).get("login", "unknown") if pr.get("author") else "ghost"
 
+            # Parse review threads for unresolved comments observability
+            review_threads = []
+            unresolved_threads_count = 0
+            resolved_threads_count = 0
+            reviewer_unresolved_map = {}
+
+            threads_nodes = pr.get("reviewThreads", {}).get("nodes", [])
+            for th in threads_nodes:
+                is_resolved = bool(th.get("isResolved"))
+                if is_resolved:
+                    resolved_threads_count += 1
+                else:
+                    unresolved_threads_count += 1
+
+                th_comments = th.get("comments", {}).get("nodes", [])
+                parsed_comments = []
+                for c in th_comments:
+                    c_author = c.get("author", {}).get("login", "unknown") if c.get("author") else "ghost"
+                    parsed_comments.append({
+                        "author": c_author,
+                        "body": c.get("body", ""),
+                        "created_at": c.get("createdAt"),
+                        "url": c.get("url"),
+                    })
+
+                first_comment = parsed_comments[0] if parsed_comments else None
+                last_comment = parsed_comments[-1] if parsed_comments else None
+                thread_initiator = first_comment["author"] if first_comment else "unknown"
+                last_commenter = last_comment["author"] if last_comment else "unknown"
+
+                # Observability status: is it waiting on author response or waiting on reviewer verification?
+                waiting_on = "unknown"
+                if not is_resolved and first_comment:
+                    if last_commenter == author_login and author_login != thread_initiator:
+                        waiting_on = "reviewer"  # Author has responded, reviewer needs to verify & resolve
+                    else:
+                        waiting_on = "author"    # Reviewer asked for changes, author has not replied yet
+
+                    reviewer_unresolved_map[thread_initiator] = reviewer_unresolved_map.get(thread_initiator, 0) + 1
+
+                review_threads.append({
+                    "id": th.get("id"),
+                    "is_resolved": is_resolved,
+                    "is_outdated": bool(th.get("isOutdated")),
+                    "path": th.get("path"),
+                    "line": th.get("line"),
+                    "thread_initiator": thread_initiator,
+                    "last_commenter": last_commenter,
+                    "waiting_on": waiting_on,
+                    "comments": parsed_comments,
+                })
+
             analyzed_prs.append({
                 "repo": full_repo,
                 "number": pr["number"],
@@ -264,6 +335,10 @@ class GitHubOrgActivityAnalyzer:
                 "changed_files": pr.get("changedFiles", 0),
                 "reviews": reviews_data,
                 "pending_reviewers": pending_reviewers,
+                "review_threads": review_threads,
+                "unresolved_threads_count": unresolved_threads_count,
+                "resolved_threads_count": resolved_threads_count,
+                "reviewer_unresolved_counts": reviewer_unresolved_map,
             })
         return analyzed_prs
 
@@ -569,6 +644,9 @@ def main():
     for pr in prs:
         print(f"\n* [{pr['repo']}] PR #{pr['number']} ({pr['state']}) by @{pr['author']}: {pr['title']}")
         print(f"  Diff: +{pr['lines_added']} / -{pr['lines_deleted']} lines across {pr['changed_files']} files")
+        if pr.get("unresolved_threads_count"):
+            rev_breakdown = ", ".join([f"@{k}: {v}" for k, v in pr.get("reviewer_unresolved_counts", {}).items()])
+            print(f"  Unresolved Threads: {pr['unresolved_threads_count']} ({rev_breakdown})")
         if pr["reviews"]:
             print("  Reviews:")
             for r in pr["reviews"]:

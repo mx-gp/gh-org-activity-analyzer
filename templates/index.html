@@ -73,6 +73,18 @@
     .badge-approved { background: rgba(63, 185, 80, 0.2); color: var(--success-text); }
     .badge-changes { background: rgba(248, 81, 73, 0.2); color: var(--danger); }
     .badge-comment { background: rgba(210, 153, 34, 0.2); color: var(--warning); }
+    .badge-unresolved { background: rgba(248, 81, 73, 0.25); color: #ff7b72; border: 1px solid rgba(248, 81, 73, 0.5); font-weight: 700; }
+    .badge-resolved { background: rgba(63, 185, 80, 0.2); color: var(--success-text); border: 1px solid rgba(63, 185, 80, 0.4); }
+    .badge-waiting-author { background: rgba(210, 153, 34, 0.2); color: #e3b341; border: 1px solid rgba(210, 153, 34, 0.4); }
+    .badge-waiting-reviewer { background: rgba(88, 166, 255, 0.2); color: #79b8ff; border: 1px solid rgba(88, 166, 255, 0.4); }
+
+    .threads-container { margin-top: 10px; background: #010409; border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; }
+    .thread-row { padding: 8px 0; border-bottom: 1px solid rgba(48, 54, 61, 0.6); font-size: 13px; }
+    .thread-row:last-child { border-bottom: none; }
+    .thread-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; }
+    .thread-snippet { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12px; color: var(--text-muted); background: #161b22; padding: 6px 10px; border-radius: 4px; border-left: 2px solid var(--accent); margin-top: 4px; }
+    .thread-toggle-btn { background: #21262d; border: 1px solid var(--border); color: #fff; font-size: 11px; padding: 2px 8px; border-radius: 4px; cursor: pointer; height: auto; }
+    .thread-toggle-btn:hover { background: #30363d; }
     .badge-type { background: rgba(110, 118, 129, 0.25); color: #e6edf3; font-weight: 500; }
     .badge-cyan { background: rgba(57, 197, 207, 0.15); color: var(--cyan); border: 1px solid rgba(57, 197, 207, 0.4); }
     
@@ -232,6 +244,10 @@
         <div class="stat-val" id="statTurnaround">--</div>
         <div class="stat-lbl">Avg PR Turnaround</div>
       </div>
+      <div class="stat-card" style="border-color: rgba(248, 81, 73, 0.4);">
+        <div class="stat-val" id="statUnresolved" style="color: #ff7b72;">0</div>
+        <div class="stat-lbl">Unresolved Threads</div>
+      </div>
       <div class="stat-card">
         <div class="stat-val" id="statDays">0</div>
         <div class="stat-lbl">Active Work Days</div>
@@ -266,6 +282,7 @@
     <div class="tabs">
       <button class="tab-btn active" onclick="switchTab('daily')">📅 Daily Work Breakdown</button>
       <button class="tab-btn" onclick="switchTab('prs')">Pull Requests & Review Telemetry</button>
+      <button class="tab-btn" onclick="switchTab('threads')">💬 Review Threads & Debt</button>
       <button class="tab-btn" onclick="switchTab('comments')">💬 Discussion Comments</button>
       <button class="tab-btn" onclick="switchTab('orphans')">Branch & PR Lifecycle Audit</button>
       <button class="tab-btn" onclick="switchTab('issues')">Issues</button>
@@ -273,6 +290,7 @@
 
     <div id="dailyTab" class="tab-content"></div>
     <div id="prsTab" class="tab-content" style="display: none;"></div>
+    <div id="threadsTab" class="tab-content" style="display: none;"></div>
     <div id="commentsTab" class="tab-content" style="display: none;"></div>
     <div id="orphansTab" class="tab-content" style="display: none;"></div>
     <div id="issuesTab" class="tab-content" style="display: none;"></div>
@@ -621,13 +639,18 @@
     });
 
     let totalReviews = 0;
-    filteredPrs.forEach(p => { totalReviews += (p.reviews || []).length; });
+    let totalUnresolvedThreads = 0;
+    filteredPrs.forEach(p => { 
+      totalReviews += (p.reviews || []).length; 
+      totalUnresolvedThreads += (p.unresolved_threads_count || 0);
+    });
     const workDaysCount = Object.keys(dailyMap).length;
 
     document.getElementById("statPrs").innerText = filteredPrs.length;
     document.getElementById("statApprovals").innerText = totalReviews;
     document.getElementById("statComments").innerText = filteredComments.length;
     document.getElementById("statCommits").innerText = totalCommitsCount;
+    document.getElementById("statUnresolved").innerText = totalUnresolvedThreads;
     document.getElementById("statDays").innerText = workDaysCount;
 
     // Render Charts
@@ -721,6 +744,60 @@
           ? `<div style="margin-top:6px;font-size:12px;color:var(--warning)">⏳ Pending reviewers: ${pr.pending_reviewers.map(p => '@' + p).join(', ')}</div>`
           : "";
 
+        const unresCount = pr.unresolved_threads_count || 0;
+        const resCount = pr.resolved_threads_count || 0;
+        const threads = pr.review_threads || [];
+        const threadBadge = unresCount > 0 
+          ? `<span class="badge badge-unresolved" style="margin-left: 6px;">⚠️ ${unresCount} Unresolved ${unresCount === 1 ? 'Thread' : 'Threads'}</span>`
+          : (resCount > 0 ? `<span class="badge badge-resolved" style="margin-left: 6px;">✓ All ${resCount} Threads Resolved</span>` : '');
+
+        const revBreakdown = Object.entries(pr.reviewer_unresolved_counts || {}).map(([rev, count]) => {
+          return `<span class="badge badge-waiting-author" style="margin-right:6px;margin-top:4px;">💬 @${rev}: ${count} pending</span>`;
+        }).join('');
+
+        const threadsListHtml = unresCount > 0 ? `
+          <div style="margin-top: 10px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+              <span style="font-size:12px; font-weight:600; color:#ff7b72;">Unresolved Review Discussions:</span>
+              <button class="thread-toggle-btn" onclick="togglePrThreads(${pr.number})">Toggle Details (${unresCount})</button>
+            </div>
+            <div style="margin-top:4px;">${revBreakdown}</div>
+            <div id="prThreads_${pr.number}" class="threads-container" style="display:none; margin-top:8px;">
+              ${threads.filter(t => !t.is_resolved).map(t => {
+                const firstComm = t.comments && t.comments[0] ? t.comments[0] : null;
+                const lastComm = t.comments && t.comments.length > 1 ? t.comments[t.comments.length - 1] : null;
+                const waitBadge = t.waiting_on === "reviewer" 
+                  ? `<span class="badge badge-waiting-reviewer">⏳ Waiting on Reviewer (@${t.thread_initiator}) to resolve</span>`
+                  : `<span class="badge badge-waiting-author">⚠️ Waiting on Author (@${pr.author})</span>`;
+                const locStr = t.path ? `${t.path}${t.line ? ':' + t.line : ''}` : 'General File Comment';
+
+                return `
+                  <div class="thread-row">
+                    <div class="thread-header">
+                      <div>
+                        <span class="code-tag">${locStr}</span>
+                        <span style="font-size:12px; margin-left:6px;">Initiated by <strong>@${t.thread_initiator}</strong></span>
+                      </div>
+                      ${waitBadge}
+                    </div>
+                    ${firstComm ? `
+                      <div class="thread-snippet">
+                        <strong>@${firstComm.author}:</strong> ${firstComm.body}
+                        ${firstComm.url ? `<a href="${firstComm.url}" target="_blank" style="color:var(--accent);margin-left:8px;font-size:11px;">View on GitHub ↗</a>` : ''}
+                      </div>
+                    ` : ''}
+                    ${lastComm ? `
+                      <div style="font-size:11px; color:var(--text-muted); margin-top:4px; padding-left:12px;">
+                        ↪ Latest reply by <strong>@${lastComm.author}</strong> (${new Date(lastComm.created_at).toLocaleDateString()}): "${lastComm.body.substring(0, 80)}${lastComm.body.length > 80 ? '...' : ''}"
+                      </div>
+                    ` : ''}
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        ` : '';
+
         return `
           <div class="list-item">
             <div class="list-title">
@@ -728,6 +805,7 @@
                 <span class="code-tag">${pr.repo}</span>
                 <a href="${pr.url}" target="_blank">#${pr.number} ${pr.title}</a>
                 <span style="font-size: 13px; color: var(--text-muted); margin-left: 6px;">by <strong>@${pr.author}</strong></span>
+                ${threadBadge}
               </div>
               <span class="badge ${badgeClass}">${pr.state}</span>
             </div>
@@ -738,6 +816,7 @@
               <strong>Review Audit:</strong>
               <div style="margin-top:4px;">${reviewsHtml}</div>
               ${pendingHtml}
+              ${threadsListHtml}
             </div>
           </div>
         `;
@@ -805,6 +884,111 @@
         </div>
       `).join("");
     }
+
+    // 6. Render Review Threads & Debt Tab
+    const threadsContainer = document.getElementById("threadsTab");
+    const prsWithThreads = filteredPrs.filter(p => (p.review_threads && p.review_threads.length > 0));
+    const prsWithUnresolved = prsWithThreads.filter(p => (p.unresolved_threads_count > 0));
+
+    if (prsWithThreads.length === 0) {
+      threadsContainer.innerHTML = "<div class='card'>No review threads found on pull requests in the selected period.</div>";
+    } else {
+      // Build summary metrics
+      const reviewerDebtMap = {};
+      const authorDebtMap = {};
+      prsWithUnresolved.forEach(p => {
+        authorDebtMap[p.author] = (authorDebtMap[p.author] || 0) + p.unresolved_threads_count;
+        Object.entries(p.reviewer_unresolved_counts || {}).forEach(([rev, count]) => {
+          reviewerDebtMap[rev] = (reviewerDebtMap[rev] || 0) + count;
+        });
+      });
+
+      const authorDebtBadges = Object.entries(authorDebtMap).map(([a, c]) => 
+        `<span class="badge badge-changes" style="margin-right:8px; margin-top:4px;">👤 @${a}: ${c} unresolved</span>`
+      ).join('') || '<span style="color:var(--success-text)">All author review threads addressed! 🎉</span>';
+
+      const reviewerDebtBadges = Object.entries(reviewerDebtMap).map(([r, c]) => 
+        `<span class="badge badge-waiting-reviewer" style="margin-right:8px; margin-top:4px;">🧐 Reviewer @${r}: ${c} open threads</span>`
+      ).join('') || '<span style="color:var(--text-muted)">None</span>';
+
+      threadsContainer.innerHTML = `
+        <div class="card" style="margin-bottom: 20px; border-left: 4px solid #ff7b72;">
+          <h3 style="font-size:16px; margin-bottom:12px; color:#fff;">📊 Review Debt Observability Matrix</h3>
+          <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap:16px; font-size:13px;">
+            <div style="background:#010409; padding:12px; border-radius:6px; border:1px solid var(--border);">
+              <strong style="display:block; margin-bottom:6px; color:#ff7b72;">⚠️ Unresolved Comments by PR Author:</strong>
+              <div>${authorDebtBadges}</div>
+            </div>
+            <div style="background:#010409; padding:12px; border-radius:6px; border:1px solid var(--border);">
+              <strong style="display:block; margin-bottom:6px; color:#79b8ff;">🧐 Reviewers Who Left Open Threads:</strong>
+              <div>${reviewerDebtBadges}</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="font-size:14px; font-weight:600; margin-bottom:12px; color:#fff;">
+          Pull Requests with Review Discussions (${prsWithThreads.length})
+        </div>
+
+        ${prsWithThreads.map(pr => {
+          const unres = pr.unresolved_threads_count || 0;
+          const res = pr.resolved_threads_count || 0;
+          const statusBadge = unres > 0 
+            ? `<span class="badge badge-unresolved">⚠️ ${unres} Unresolved</span>`
+            : `<span class="badge badge-resolved">✓ ${res} Resolved</span>`;
+
+          return `
+            <div class="list-item">
+              <div class="list-title">
+                <div>
+                  <span class="code-tag">${pr.repo}</span>
+                  <a href="${pr.url}" target="_blank">#${pr.number} ${pr.title}</a>
+                  <span style="font-size: 13px; color: var(--text-muted); margin-left: 6px;">by <strong>@${pr.author}</strong></span>
+                </div>
+                <div>${statusBadge}</div>
+              </div>
+
+              <div class="threads-container">
+                ${pr.review_threads.map(t => {
+                  const firstComm = t.comments && t.comments[0] ? t.comments[0] : null;
+                  const lastComm = t.comments && t.comments.length > 1 ? t.comments[t.comments.length - 1] : null;
+                  const stateBadge = t.is_resolved 
+                    ? `<span class="badge badge-resolved">Resolved</span>`
+                    : (t.waiting_on === "reviewer" 
+                        ? `<span class="badge badge-waiting-reviewer">⏳ Waiting on Reviewer (@${t.thread_initiator}) to verify</span>`
+                        : `<span class="badge badge-waiting-author">⚠️ Waiting on Author (@${pr.author})</span>`);
+                  const locStr = t.path ? `${t.path}${t.line ? ':' + t.line : ''}` : 'PR Comment';
+
+                  return `
+                    <div class="thread-row" style="opacity: ${t.is_resolved ? '0.6' : '1'};">
+                      <div class="thread-header">
+                        <div>
+                          <span class="code-tag">${locStr}</span>
+                          <span style="font-size:12px; margin-left:6px;">Reviewer: <strong>@${t.thread_initiator}</strong></span>
+                          ${t.is_outdated ? '<span style="font-size:11px; color:var(--text-muted); margin-left:6px;">(Outdated diff)</span>' : ''}
+                        </div>
+                        <div>${stateBadge}</div>
+                      </div>
+                      ${firstComm ? `
+                        <div class="thread-snippet">
+                          <strong>@${firstComm.author}:</strong> ${firstComm.body}
+                          ${firstComm.url ? `<a href="${firstComm.url}" target="_blank" style="color:var(--accent);margin-left:8px;font-size:11px;">View thread ↗</a>` : ''}
+                        </div>
+                      ` : ''}
+                      ${lastComm ? `
+                        <div style="font-size:11px; color:var(--text-muted); margin-top:4px; padding-left:10px;">
+                          ↪ Latest reply by <strong>@${lastComm.author}</strong> (${new Date(lastComm.created_at).toLocaleDateString()}): "${lastComm.body.substring(0, 90)}${lastComm.body.length > 90 ? '...' : ''}"
+                        </div>
+                      ` : ''}
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          `;
+        }).join('')}
+      `;
+    }
   }
 
   function renderCharts(dailyMap, counts) {
@@ -864,6 +1048,13 @@
     }).join('');
   }
 
+  function togglePrThreads(prNum) {
+    const el = document.getElementById(`prThreads_${prNum}`);
+    if (el) {
+      el.style.display = (el.style.display === "none" || el.style.display === "") ? "block" : "none";
+    }
+  }
+
   function switchTab(tab) {
     document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
     document.querySelectorAll(".tab-content").forEach(c => c.style.display = "none");
@@ -874,14 +1065,17 @@
     } else if (tab === "prs") {
       document.querySelectorAll(".tab-btn")[1].classList.add("active");
       document.getElementById("prsTab").style.display = "block";
-    } else if (tab === "comments") {
+    } else if (tab === "threads") {
       document.querySelectorAll(".tab-btn")[2].classList.add("active");
+      document.getElementById("threadsTab").style.display = "block";
+    } else if (tab === "comments") {
+      document.querySelectorAll(".tab-btn")[3].classList.add("active");
       document.getElementById("commentsTab").style.display = "block";
     } else if (tab === "orphans") {
-      document.querySelectorAll(".tab-btn")[3].classList.add("active");
+      document.querySelectorAll(".tab-btn")[4].classList.add("active");
       document.getElementById("orphansTab").style.display = "block";
     } else if (tab === "issues") {
-      document.querySelectorAll(".tab-btn")[4].classList.add("active");
+      document.querySelectorAll(".tab-btn")[5].classList.add("active");
       document.getElementById("issuesTab").style.display = "block";
     }
   }
