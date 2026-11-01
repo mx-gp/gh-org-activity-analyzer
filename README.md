@@ -10,6 +10,39 @@ An open-source, zero-external-dependency developer telemetry and code review aud
 
 ---
 
+## 📸 Screenshots & UI Walkthrough
+
+<p align="center">
+  <img src="assets/screenshots/01-dashboard-overview.png" alt="Executive Dashboard Overview" width="95%" />
+</p>
+
+<details>
+  <summary><strong>🔍 Click to view more dashboard views (Timeline, Review Audit, Debt Matrix, Comments)</strong></summary>
+  <br>
+
+  ### 1. 📅 Daily Work Breakdown & Contribution Velocity
+  <p align="center">
+    <img src="assets/screenshots/02-daily-timeline.png" alt="Daily Timeline Breakdown" width="95%" />
+  </p>
+
+  ### 2. 🧐 Pull Request & Code Review Telemetry
+  <p align="center">
+    <img src="assets/screenshots/03-pr-review-audit.png" alt="Pull Request & Review Audit" width="95%" />
+  </p>
+
+  ### 3. 💬 Review Debt & Observability Matrix
+  <p align="center">
+    <img src="assets/screenshots/04-review-debt-matrix.png" alt="Review Debt Matrix" width="95%" />
+  </p>
+
+  ### 4. 💬 Discussion Comments Extraction
+  <p align="center">
+    <img src="assets/screenshots/05-discussion-comments.png" alt="Discussion Comments Audit" width="95%" />
+  </p>
+</details>
+
+---
+
 ## ✨ Features
 
 - **🎯 Flexible Scope**:
