@@ -1,7 +1,9 @@
 import argparse
+import concurrent.futures
 import json
 import os
 import re
+import socket
 import sys
 import urllib.error
 import urllib.parse
@@ -11,6 +13,9 @@ from auth import GitHubAuthManager
 
 GITHUB_REST_API = "https://api.github.com"
 GITHUB_GRAPHQL_API = "https://api.github.com/graphql"
+DEFAULT_TIMEOUT = int(os.environ.get("GITHUB_API_TIMEOUT", "60"))
+DEFAULT_MAX_BRANCHES = int(os.environ.get("GITHUB_MAX_BRANCHES", "30"))
+DEFAULT_WORKERS = int(os.environ.get("GITHUB_WORKERS", "6"))
 
 
 class GitHubTargetScope:
@@ -61,11 +66,17 @@ class GitHubOrgActivityAnalyzer:
         owner: Optional[str] = None,
         repo: Optional[str] = None,
         is_org: bool = False,
+        timeout: int = DEFAULT_TIMEOUT,
+        max_branches: int = DEFAULT_MAX_BRANCHES,
+        max_workers: int = DEFAULT_WORKERS,
     ):
         self.token = token
         self.owner = owner.strip() if owner and owner.strip() else None
         self.repo = repo.strip() if repo and repo.strip() else None
         self.is_org = is_org
+        self.timeout = timeout
+        self.max_branches = max_branches
+        self.max_workers = max_workers
         self.headers = {
             "Authorization": f"Bearer {token}",
             "Accept": "application/vnd.github.v3+json",
@@ -80,7 +91,7 @@ class GitHubOrgActivityAnalyzer:
         encoded_data = json.dumps(data).encode("utf-8") if data else None
         req = urllib.request.Request(url, data=encoded_data, headers=self.headers, method=method)
         try:
-            with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:  # nosec B310
                 resp_bytes = resp.read()
                 if not resp_bytes:
                     return None
@@ -88,6 +99,8 @@ class GitHubOrgActivityAnalyzer:
         except urllib.error.HTTPError as e:
             err_body = e.read().decode("utf-8", errors="replace")
             raise RuntimeError(f"HTTP {e.code} error for {url}: {err_body}")
+        except (urllib.error.URLError, socket.timeout, TimeoutError) as e:
+            raise RuntimeError(f"Request timed out ({self.timeout}s) for {url}: {e}")
 
     def _graphql(self, query: str, variables: Dict[str, Any]) -> Dict[str, Any]:
         data = self._http_request(
@@ -192,7 +205,7 @@ class GitHubOrgActivityAnalyzer:
                 additions
                 deletions
                 changedFiles
-                reviews(first: 50) {
+                reviews(first: 20) {
                   nodes {
                     author { login }
                     state
@@ -200,7 +213,7 @@ class GitHubOrgActivityAnalyzer:
                     body
                   }
                 }
-                reviewRequests(first: 20) {
+                reviewRequests(first: 15) {
                   nodes {
                     requestedReviewer {
                       ... on User { login }
@@ -208,7 +221,7 @@ class GitHubOrgActivityAnalyzer:
                     }
                   }
                 }
-                reviewThreads(first: 50) {
+                reviewThreads(first: 25) {
                   totalCount
                   nodes {
                     id
@@ -488,11 +501,23 @@ class GitHubOrgActivityAnalyzer:
         return extracted_comments
 
     def analyze_branches(
-        self, repo_owner: str, repo_name: str, default_branch: str, user_filter: Optional[str] = None
+        self,
+        repo_owner: str,
+        repo_name: str,
+        default_branch: str,
+        user_filter: Optional[str] = None,
+        max_branches: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
-        """Detect branches, audit commits with optional author filter, and determine full PR relationship."""
+        """Detect branches, audit commits with optional author filter, and determine full PR relationship.
+
+        Leverages concurrency and branch caps to prevent HTTP timeouts on heavy repos.
+        """
         all_prs_url = f"{GITHUB_REST_API}/repos/{repo_owner}/{repo_name}/pulls?state=all&per_page=100"
-        prs_items = self._http_request(all_prs_url)
+        try:
+            prs_items = self._http_request(all_prs_url)
+        except Exception:
+            prs_items = []
+
         pr_map = {}
         if isinstance(prs_items, list):
             for pr in prs_items:
@@ -507,16 +532,24 @@ class GitHubOrgActivityAnalyzer:
                     }
 
         branches_url = f"{GITHUB_REST_API}/repos/{repo_owner}/{repo_name}/branches?per_page=100"
-        branches = self._http_request(branches_url)
+        try:
+            branches = self._http_request(branches_url)
+        except Exception:
+            return []
+
         if not isinstance(branches, list):
             return []
 
-        audit_branches = []
-        for b in branches:
-            branch_name = b["name"]
-            if branch_name == default_branch:
-                continue
+        # Filter out default branch
+        candidate_branches = [b for b in branches if b.get("name") != default_branch]
 
+        # Prioritize branches: cap to max_branches (defaults to self.max_branches)
+        limit = max_branches if max_branches is not None else self.max_branches
+        if limit and limit > 0:
+            candidate_branches = candidate_branches[:limit]
+
+        def _audit_single_branch(b: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+            branch_name = b["name"]
             associated_pr = pr_map.get(branch_name)
             if not associated_pr:
                 pr_status = "NO_PR_EVER"
@@ -531,10 +564,17 @@ class GitHubOrgActivityAnalyzer:
                 pr_status = "OPEN_PR"
                 status_label = f"Active Open PR #{associated_pr['number']}"
 
-            commits_url = f"{GITHUB_REST_API}/repos/{repo_owner}/{repo_name}/commits?sha={urllib.parse.quote(branch_name)}&per_page=30"
-            commits = self._http_request(commits_url)
+            commits_url = (
+                f"{GITHUB_REST_API}/repos/{repo_owner}/{repo_name}/commits?"
+                f"sha={urllib.parse.quote(branch_name)}&per_page=30"
+            )
+            try:
+                commits = self._http_request(commits_url)
+            except Exception:
+                return None
+
             if not isinstance(commits, list):
-                continue
+                return None
 
             matched_commits = []
             for c in commits:
@@ -548,14 +588,14 @@ class GitHubOrgActivityAnalyzer:
                         continue
 
                 matched_commits.append({
-                    "sha": c["sha"][:7],
+                    "sha": c.get("sha", "")[:7],
                     "author": commit_author,
                     "date": c.get("commit", {}).get("author", {}).get("date"),
                     "message": c.get("commit", {}).get("message", "").split("\n")[0],
                 })
 
             if matched_commits:
-                audit_branches.append({
+                return {
                     "repo": f"{repo_owner}/{repo_name}",
                     "branch": branch_name,
                     "pr_status": pr_status,
@@ -563,7 +603,21 @@ class GitHubOrgActivityAnalyzer:
                     "associated_pr": associated_pr,
                     "matched_commits_count": len(matched_commits),
                     "commits": matched_commits,
-                })
+                }
+            return None
+
+        audit_branches = []
+        # Concurrently inspect branches using worker pool
+        workers = max(1, min(self.max_workers, len(candidate_branches) or 1))
+        with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as executor:
+            future_to_branch = {executor.submit(_audit_single_branch, b): b for b in candidate_branches}
+            for future in concurrent.futures.as_completed(future_to_branch):
+                try:
+                    res = future.result()
+                    if res:
+                        audit_branches.append(res)
+                except Exception:
+                    pass
 
         return audit_branches
 
@@ -577,7 +631,10 @@ def main():
     parser.add_argument("--app-id", help="GitHub App ID")
     parser.add_argument("--private-key-file", help="Path to GitHub App private key (.pem) file")
     parser.add_argument("--installation-id", help="GitHub App Installation ID")
-    parser.add_argument("--include-branches", action="store_true", default=True, help="Scan branches")
+    parser.add_argument("--include-branches", action=argparse.BooleanOptionalAction, default=True, help="Scan branches (use --no-include-branches to skip)")
+    parser.add_argument("--max-branches", type=int, default=DEFAULT_MAX_BRANCHES, help=f"Max branches to audit per repo (default: {DEFAULT_MAX_BRANCHES})")
+    parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT, help=f"HTTP socket timeout in seconds (default: {DEFAULT_TIMEOUT}s)")
+    parser.add_argument("--workers", type=int, default=DEFAULT_WORKERS, help=f"Concurrency workers for branch inspection (default: {DEFAULT_WORKERS})")
     parser.add_argument("--json", action="store_true", help="Output results formatted as JSON")
     args = parser.parse_args()
 
@@ -601,7 +658,15 @@ def main():
     owner, repo, scope_kind = GitHubTargetScope.parse(args.target or args.org, default_owner=auth_user)
     is_org = bool(args.org)
 
-    analyzer = GitHubOrgActivityAnalyzer(token=token, owner=owner, repo=repo, is_org=is_org)
+    analyzer = GitHubOrgActivityAnalyzer(
+        token=token,
+        owner=owner,
+        repo=repo,
+        is_org=is_org,
+        timeout=args.timeout,
+        max_branches=args.max_branches,
+        max_workers=args.workers,
+    )
 
     repos = analyzer.get_repositories()
     prs = analyzer.analyze_pull_requests(author_filter=args.author)
