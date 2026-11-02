@@ -50,6 +50,8 @@ class AnalyzerHTTPHandler(http.server.BaseHTTPRequestHandler):
             private_key = payload.get("private_key")
             installation_id = payload.get("installation_id")
             include_branches = payload.get("include_branches_without_pr", True)
+            timeout = int(payload.get("timeout") or os.environ.get("GITHUB_API_TIMEOUT", "60"))
+            max_branches = int(payload.get("max_branches") or os.environ.get("GITHUB_MAX_BRANCHES", "30"))
 
             try:
                 token, auth_method, meta = GitHubAuthManager.resolve_token(
@@ -71,6 +73,8 @@ class AnalyzerHTTPHandler(http.server.BaseHTTPRequestHandler):
                     owner=owner,
                     repo=repo,
                     is_org=bool(payload.get("is_org")),
+                    timeout=timeout,
+                    max_branches=max_branches,
                 )
 
                 repos = analyzer.get_repositories()

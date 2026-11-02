@@ -133,6 +133,42 @@ class TestGitHubOrgActivityAnalyzer(unittest.TestCase):
         self.assertEqual(unresolved_thread["thread_initiator"], "carol")
         self.assertEqual(unresolved_thread["waiting_on"], "author")
 
+    def test_analyze_branches_concurrency_and_limits(self):
+        analyzer = GitHubOrgActivityAnalyzer(token="dummy", owner="test-org", repo="repo1", max_branches=2, max_workers=2)
+
+        def mock_http(url, *args, **kwargs):
+            if "/pulls?" in url:
+                return [{"number": 101, "head": {"ref": "feature-1"}, "state": "open", "merged_at": None, "html_url": "https://github.com/test-org/repo1/pull/101"}]
+            if "/branches?" in url:
+                return [
+                    {"name": "main"},
+                    {"name": "feature-1"},
+                    {"name": "feature-2"},
+                    {"name": "feature-3"},
+                ]
+            if "/commits?" in url:
+                return [
+                    {
+                        "sha": "1234567890abcdef",
+                        "author": {"login": "alice"},
+                        "commit": {
+                            "author": {"name": "Alice", "date": "2026-03-01T10:00:00Z"},
+                            "message": "Commit on branch\nDetails",
+                        },
+                    }
+                ]
+            return None
+
+        analyzer._http_request = MagicMock(side_effect=mock_http)
+        branches = analyzer.analyze_branches("test-org", "repo1", default_branch="main", user_filter="alice", max_branches=2)
+
+        # max_branches=2 should limit audit to at most 2 branches
+        self.assertLessEqual(len(branches), 2)
+        self.assertTrue(any(b["branch"] == "feature-1" for b in branches))
+        feature_1 = next(b for b in branches if b["branch"] == "feature-1")
+        self.assertEqual(feature_1["pr_status"], "OPEN_PR")
+        self.assertEqual(len(feature_1["commits"]), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

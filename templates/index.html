@@ -187,9 +187,15 @@
       </div>
     </div>
 
-    <div class="checkbox-group">
-      <input type="checkbox" id="checkUnlinked" checked>
-      <label for="checkUnlinked">Audit non-default branches (scan unmerged commits & PR association)</label>
+    <div class="checkbox-group" style="display: flex; gap: 24px; flex-wrap: wrap;">
+      <div>
+        <input type="checkbox" id="checkUnlinked" checked>
+        <label for="checkUnlinked">Audit non-default branches (scan unmerged commits & PR association)</label>
+      </div>
+      <div>
+        <input type="checkbox" id="fastScan" checked>
+        <label for="fastScan" title="Caps branch inspection to the 30 most recent branches and utilizes concurrent worker threads to prevent timeouts on heavy repositories.">⚡ Fast Scan for heavy repos (recommended)</label>
+      </div>
     </div>
   </div>
 
@@ -358,11 +364,14 @@
     const target = document.getElementById("targetInput").value.trim();
     const author = document.getElementById("authorInput").value.trim();
     const checkUnlinked = document.getElementById("checkUnlinked").checked;
+    const fastScan = document.getElementById("fastScan") ? document.getElementById("fastScan").checked : true;
 
     const payload = {
       target: target,
       author: author,
       include_branches_without_pr: checkUnlinked,
+      max_branches: fastScan ? 30 : 100,
+      timeout: 60,
     };
 
     if (currentAuthMode === 'pat') {
