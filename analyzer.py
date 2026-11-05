@@ -10,12 +10,14 @@ import urllib.parse
 import urllib.request
 from typing import Any, Dict, List, Optional, Tuple
 from auth import GitHubAuthManager
+from cache import ResponseCache
 
 GITHUB_REST_API = "https://api.github.com"
 GITHUB_GRAPHQL_API = "https://api.github.com/graphql"
 DEFAULT_TIMEOUT = int(os.environ.get("GITHUB_API_TIMEOUT", "60"))
 DEFAULT_MAX_BRANCHES = int(os.environ.get("GITHUB_MAX_BRANCHES", "30"))
 DEFAULT_WORKERS = int(os.environ.get("GITHUB_WORKERS", "6"))
+DEFAULT_CACHE_TTL = int(os.environ.get("GITHUB_CACHE_TTL", "300"))
 
 
 class GitHubTargetScope:
@@ -69,6 +71,9 @@ class GitHubOrgActivityAnalyzer:
         timeout: int = DEFAULT_TIMEOUT,
         max_branches: int = DEFAULT_MAX_BRANCHES,
         max_workers: int = DEFAULT_WORKERS,
+        cache_enabled: bool = True,
+        cache_ttl: int = DEFAULT_CACHE_TTL,
+        cache_dir: Optional[str] = None,
     ):
         self.token = token
         self.owner = owner.strip() if owner and owner.strip() else None
@@ -77,6 +82,7 @@ class GitHubOrgActivityAnalyzer:
         self.timeout = timeout
         self.max_branches = max_branches
         self.max_workers = max_workers
+        self.cache = ResponseCache(cache_dir=cache_dir, default_ttl=cache_ttl, enabled=cache_enabled)
         self.headers = {
             "Authorization": f"Bearer {token}",
             "Accept": "application/vnd.github.v3+json",
@@ -88,15 +94,31 @@ class GitHubOrgActivityAnalyzer:
         if not url.startswith("https://api.github.com"):
             raise ValueError(f"Untrusted URL scheme or host: {url}")
 
+        cached_data, cached_etag, is_expired = self.cache.get(url, method, data)
+        # If cache entry is still fresh and unexpired, return immediately without network call
+        if cached_data is not None and not is_expired:
+            return cached_data
+
+        request_headers = dict(self.headers)
+        if cached_etag:
+            request_headers["If-None-Match"] = cached_etag
+
         encoded_data = json.dumps(data).encode("utf-8") if data else None
-        req = urllib.request.Request(url, data=encoded_data, headers=self.headers, method=method)
+        req = urllib.request.Request(url, data=encoded_data, headers=request_headers, method=method)
         try:
             with urllib.request.urlopen(req, timeout=self.timeout) as resp:  # nosec B310
                 resp_bytes = resp.read()
                 if not resp_bytes:
                     return None
-                return json.loads(resp_bytes.decode("utf-8"))
+                parsed = json.loads(resp_bytes.decode("utf-8"))
+                etag = resp.headers.get("ETag")
+                self.cache.set(url, method, data, parsed, etag=etag)
+                return parsed
         except urllib.error.HTTPError as e:
+            if e.code == 304 and cached_data is not None:
+                # 304 Not Modified: re-use cached data and extend TTL
+                self.cache.touch(url, method, data)
+                return cached_data
             err_body = e.read().decode("utf-8", errors="replace")
             raise RuntimeError(f"HTTP {e.code} error for {url}: {err_body}")
         except (urllib.error.URLError, socket.timeout, TimeoutError) as e:
@@ -635,6 +657,9 @@ def main():
     parser.add_argument("--max-branches", type=int, default=DEFAULT_MAX_BRANCHES, help=f"Max branches to audit per repo (default: {DEFAULT_MAX_BRANCHES})")
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT, help=f"HTTP socket timeout in seconds (default: {DEFAULT_TIMEOUT}s)")
     parser.add_argument("--workers", type=int, default=DEFAULT_WORKERS, help=f"Concurrency workers for branch inspection (default: {DEFAULT_WORKERS})")
+    parser.add_argument("--cache", action=argparse.BooleanOptionalAction, default=True, help="Enable disk response caching with ETag/TTL (default: enabled)")
+    parser.add_argument("--cache-ttl", type=int, default=DEFAULT_CACHE_TTL, help=f"Cache TTL in seconds (default: {DEFAULT_CACHE_TTL}s)")
+    parser.add_argument("--clear-cache", action="store_true", help="Clear cached responses before executing analysis")
     parser.add_argument("--json", action="store_true", help="Output results formatted as JSON")
     args = parser.parse_args()
 
@@ -666,7 +691,13 @@ def main():
         timeout=args.timeout,
         max_branches=args.max_branches,
         max_workers=args.workers,
+        cache_enabled=args.cache,
+        cache_ttl=args.cache_ttl,
     )
+
+    if args.clear_cache:
+        cleared_count = analyzer.cache.clear()
+        print(f"Cleared {cleared_count} cached API response(s).")
 
     repos = analyzer.get_repositories()
     prs = analyzer.analyze_pull_requests(author_filter=args.author)
