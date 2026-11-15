@@ -117,6 +117,37 @@ class AnalyzerHTTPHandler(http.server.BaseHTTPRequestHandler):
 
             except Exception as e:
                 self._send_json({"error": str(e)}, 500)
+        elif self.path == "/api/digest":
+            try:
+                content_len = int(self.headers.get("Content-Length", 0))
+                post_body = self.rfile.read(content_len).decode("utf-8")
+                payload = json.loads(post_body) if post_body else {}
+
+                from digest import generate_markdown_digest, send_webhook_digest
+
+                report_data = payload.get("report")
+                webhook_url = payload.get("webhook_url")
+
+                if not report_data:
+                    self._send_json({"error": "Missing report payload"}, 400)
+                    return
+
+                markdown_digest = generate_markdown_digest(report_data)
+                webhook_sent = False
+                if webhook_url:
+                    webhook_sent = send_webhook_digest(
+                        webhook_url,
+                        markdown_digest,
+                        title=f"GitHub Activity Digest: {report_data.get('scope', 'Repo')}"
+                    )
+
+                self._send_json({
+                    "markdown": markdown_digest,
+                    "webhook_sent": webhook_sent
+                }, 200)
+
+            except Exception as e:
+                self._send_json({"error": str(e)}, 500)
         else:
             self.send_error(404, "Endpoint Not Found")
 

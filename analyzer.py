@@ -661,6 +661,8 @@ def main():
     parser.add_argument("--cache-ttl", type=int, default=DEFAULT_CACHE_TTL, help=f"Cache TTL in seconds (default: {DEFAULT_CACHE_TTL}s)")
     parser.add_argument("--clear-cache", action="store_true", help="Clear cached responses before executing analysis")
     parser.add_argument("--json", action="store_true", help="Output results formatted as JSON")
+    parser.add_argument("--digest-markdown", help="Save executive summary digest to a Markdown file path")
+    parser.add_argument("--webhook-url", help="Slack or Discord webhook URL to send the executive digest report to")
     args = parser.parse_args()
 
     private_pem = None
@@ -730,6 +732,19 @@ def main():
     if args.json:
         print(json.dumps(output, indent=2))
         return
+
+    if args.digest_markdown or args.webhook_url:
+        from digest import generate_markdown_digest, send_webhook_digest
+        digest_md = generate_markdown_digest(output)
+
+        if args.digest_markdown:
+            with open(args.digest_markdown, "w", encoding="utf-8") as f:
+                f.write(digest_md)
+            print(f"Executive digest written to {args.digest_markdown}")
+
+        if args.webhook_url:
+            send_webhook_digest(args.webhook_url, digest_md, title=f"GitHub Activity Digest: {scope_display}")
+            print(f"Executive digest sent to webhook endpoint.")
 
     print(f"\n========================================================")
     print(f" Target Scope: {scope_display} | Author Filter: {args.author or 'ALL'}")
