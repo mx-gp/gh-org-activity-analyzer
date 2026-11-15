@@ -52,6 +52,8 @@ class AnalyzerHTTPHandler(http.server.BaseHTTPRequestHandler):
             include_branches = payload.get("include_branches_without_pr", True)
             timeout = int(payload.get("timeout") or os.environ.get("GITHUB_API_TIMEOUT", "60"))
             max_branches = int(payload.get("max_branches") or os.environ.get("GITHUB_MAX_BRANCHES", "30"))
+            cache_enabled = bool(payload.get("cache_enabled", True))
+            cache_ttl = int(payload.get("cache_ttl") or os.environ.get("GITHUB_CACHE_TTL", "300"))
 
             try:
                 token, auth_method, meta = GitHubAuthManager.resolve_token(
@@ -75,6 +77,8 @@ class AnalyzerHTTPHandler(http.server.BaseHTTPRequestHandler):
                     is_org=bool(payload.get("is_org")),
                     timeout=timeout,
                     max_branches=max_branches,
+                    cache_enabled=cache_enabled,
+                    cache_ttl=cache_ttl,
                 )
 
                 repos = analyzer.get_repositories()
