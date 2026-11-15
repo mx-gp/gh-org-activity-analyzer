@@ -168,6 +168,38 @@ test.describe('GitHub Activity & Review Analyzer Web Dashboard', () => {
     await expect(page.locator('#commentsTab')).toBeVisible();
     await expect(page.locator('#commentsTab')).toContainText('@dependabot rebase');
     await expect(page.locator('#commentsTab')).toContainText('#27 Bump embla-carousel-react');
+
+    // Test Executive Digest Modal & Webhook UI
+    await page.route('/api/digest', async (route) => {
+      const req = route.request().postDataJSON();
+      if (req.webhook_url) {
+        await route.fulfill({
+          json: { markdown: '# Mock Digest Content', webhook_sent: true }
+        });
+      } else {
+        await route.fulfill({
+          json: {
+            markdown: '# 📊 GitHub Activity Digest: octocat/my-repo\n\n## 📈 Executive Summary\n- Pull Requests: 1',
+            webhook_sent: false
+          }
+        });
+      }
+    });
+
+    // Open Digest modal
+    await page.click('button:has-text("📝 Executive Digest")');
+    const digestModal = page.locator('#digestModal');
+    await expect(digestModal).toBeVisible();
+    await expect(page.locator('#digestPreview')).toHaveValue(/Executive Summary/);
+
+    // Test sending to webhook
+    await page.fill('#webhookUrlInput', 'https://hooks.slack.com/services/T00/B00/X00');
+    await page.click('button:has-text("🚀 Send Digest")');
+    await expect(page.locator('#webhookStatus')).toContainText('✅ Digest posted successfully!');
+
+    // Close modal
+    await page.click('#digestModal button:has-text("×")');
+    await expect(digestModal).not.toBeVisible();
   });
 
 });
