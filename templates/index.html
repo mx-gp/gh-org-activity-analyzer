@@ -248,7 +248,11 @@
       </div>
       <div class="stat-card">
         <div class="stat-val" id="statTurnaround">--</div>
-        <div class="stat-lbl">Avg PR Turnaround</div>
+        <div class="stat-lbl">Avg PR Cycle Time</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val" id="statTimeToFirstReview">--</div>
+        <div class="stat-lbl">Avg Time to 1st Review</div>
       </div>
       <div class="stat-card" style="border-color: rgba(248, 81, 73, 0.4);">
         <div class="stat-val" id="statUnresolved" style="color: #ff7b72;">0</div>
@@ -496,17 +500,27 @@
     // 1. Filter PRs & compute turnaround time
     let totalTurnaroundHours = 0;
     let turnaroundCount = 0;
+    let totalFirstReviewHours = 0;
+    let firstReviewCount = 0;
 
     const filteredPrs = (rawReportData.pull_requests || []).filter(pr => {
       const created = new Date(pr.created_at);
       const mergedOrClosed = pr.merged_at ? new Date(pr.merged_at) : (pr.closed_at ? new Date(pr.closed_at) : null);
 
-      if (mergedOrClosed && !isNaN(created.getTime()) && !isNaN(mergedOrClosed.getTime())) {
+      if (pr.cycle_time_hours != null) {
+        totalTurnaroundHours += pr.cycle_time_hours;
+        turnaroundCount++;
+      } else if (mergedOrClosed && !isNaN(created.getTime()) && !isNaN(mergedOrClosed.getTime())) {
         const diffHours = (mergedOrClosed - created) / (1000 * 60 * 60);
         if (diffHours >= 0) {
           totalTurnaroundHours += diffHours;
           turnaroundCount++;
         }
+      }
+
+      if (pr.time_to_first_review_hours != null) {
+        totalFirstReviewHours += pr.time_to_first_review_hours;
+        firstReviewCount++;
       }
 
       if (!activeStartDate && !activeEndDate) return true;
@@ -515,6 +529,10 @@
 
     const avgTurnaround = turnaroundCount > 0 ? formatDurationHours(totalTurnaroundHours / turnaroundCount) : "--";
     document.getElementById("statTurnaround").innerText = avgTurnaround;
+
+    const avgFirstReview = firstReviewCount > 0 ? formatDurationHours(totalFirstReviewHours / firstReviewCount) : "--";
+    const elFirstReview = document.getElementById("statTimeToFirstReview");
+    if (elFirstReview) elFirstReview.innerText = avgFirstReview;
 
     // 2. Filter Issues
     const filteredIssues = (rawReportData.issues || []).filter(issue => {
@@ -742,6 +760,15 @@
     } else {
       prsContainer.innerHTML = filteredPrs.map(pr => {
         const badgeClass = pr.state === "OPEN" ? "badge-open" : pr.state === "MERGED" ? "badge-merged" : "badge-closed";
+        const slaClass = pr.sla_status === "HEALTHY" ? "badge-approved" : pr.sla_status === "WARNING" ? "badge-warning" : pr.sla_status === "BREACHED" ? "badge-changes" : "badge-type";
+        const slaBadge = pr.sla_status && pr.sla_status !== "N/A"
+          ? `<span class="badge ${slaClass}" style="margin-left: 6px;">SLA: ${pr.sla_status}</span>`
+          : "";
+        const turnaroundInfo = `
+          <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
+            ⏱️ 1st Review: <strong>${pr.time_to_first_review_hours != null ? formatDurationHours(pr.time_to_first_review_hours) : 'None'}</strong> |
+            Cycle Time: <strong>${pr.cycle_time_hours != null ? formatDurationHours(pr.cycle_time_hours) : (pr.state === 'OPEN' ? 'In Progress' : '--')}</strong>
+          </div>`;
         const reviewsHtml = (pr.reviews && pr.reviews.length > 0)
           ? pr.reviews.map(r => {
               const stateClass = r.state === "APPROVED" ? "badge-approved" : r.state === "CHANGES_REQUESTED" ? "badge-changes" : "badge-comment";
@@ -815,11 +842,13 @@
                 <a href="${pr.url}" target="_blank">#${pr.number} ${pr.title}</a>
                 <span style="font-size: 13px; color: var(--text-muted); margin-left: 6px;">by <strong>@${pr.author}</strong></span>
                 ${threadBadge}
+                ${slaBadge}
               </div>
               <span class="badge ${badgeClass}">${pr.state}</span>
             </div>
             <div style="font-size: 13px; color: var(--text-muted);">
               Diff: +${pr.lines_added} / -${pr.lines_deleted} lines across ${pr.changed_files} files | Created: ${new Date(pr.created_at).toLocaleDateString()} ${pr.merged_at ? `| Merged: ${new Date(pr.merged_at).toLocaleDateString()}` : ''}
+              ${turnaroundInfo}
             </div>
             <div class="reviewers-list">
               <strong>Review Audit:</strong>

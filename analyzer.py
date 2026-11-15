@@ -1,5 +1,6 @@
 import argparse
 import concurrent.futures
+from datetime import datetime, timezone
 import json
 import os
 import re
@@ -355,6 +356,67 @@ class GitHubOrgActivityAnalyzer:
                     "comments": parsed_comments,
                 })
 
+            # Calculate Review SLAs & Turnaround Telemetry
+            created_dt = None
+            if pr.get("createdAt"):
+                try:
+                    created_dt = datetime.fromisoformat(pr["createdAt"].replace("Z", "+00:00"))
+                except Exception:
+                    pass
+
+            first_review_at = None
+            time_to_first_review_hours = None
+            first_approved_at = None
+            time_to_first_approval_hours = None
+
+            for r in sorted(reviews_data, key=lambda x: x.get("submitted_at") or ""):
+                sub_at = r.get("submitted_at")
+                if not sub_at or not created_dt:
+                    continue
+                try:
+                    sub_dt = datetime.fromisoformat(sub_at.replace("Z", "+00:00"))
+                    diff_h = round((sub_dt - created_dt).total_seconds() / 3600.0, 2)
+                    if diff_h >= 0:
+                        if first_review_at is None:
+                            first_review_at = sub_at
+                            time_to_first_review_hours = diff_h
+                        if r.get("state") == "APPROVED" and first_approved_at is None:
+                            first_approved_at = sub_at
+                            time_to_first_approval_hours = diff_h
+                except Exception:
+                    pass
+
+            cycle_time_hours = None
+            end_iso = pr.get("mergedAt") or pr.get("closedAt")
+            if created_dt and end_iso:
+                try:
+                    end_dt = datetime.fromisoformat(end_iso.replace("Z", "+00:00"))
+                    diff_h = round((end_dt - created_dt).total_seconds() / 3600.0, 2)
+                    if diff_h >= 0:
+                        cycle_time_hours = diff_h
+                except Exception:
+                    pass
+
+            # SLA Status classification:
+            # - breached if > 48h to first review or open > 48h with no review
+            # - warning if > 24h
+            # - healthy if <= 24h
+            now_dt = datetime.now(timezone.utc)
+            effective_elapsed = (
+                time_to_first_review_hours
+                if time_to_first_review_hours is not None
+                else ((now_dt - created_dt).total_seconds() / 3600.0 if created_dt and pr.get("state") == "OPEN" else None)
+            )
+
+            if effective_elapsed is None:
+                sla_status = "N/A"
+            elif effective_elapsed <= 24.0:
+                sla_status = "HEALTHY"
+            elif effective_elapsed <= 48.0:
+                sla_status = "WARNING"
+            else:
+                sla_status = "BREACHED"
+
             analyzed_prs.append({
                 "repo": full_repo,
                 "number": pr["number"],
@@ -374,6 +436,12 @@ class GitHubOrgActivityAnalyzer:
                 "unresolved_threads_count": unresolved_threads_count,
                 "resolved_threads_count": resolved_threads_count,
                 "reviewer_unresolved_counts": reviewer_unresolved_map,
+                "first_review_at": first_review_at,
+                "time_to_first_review_hours": time_to_first_review_hours,
+                "first_approved_at": first_approved_at,
+                "time_to_first_approval_hours": time_to_first_approval_hours,
+                "cycle_time_hours": cycle_time_hours,
+                "sla_status": sla_status,
             })
         return analyzed_prs
 
@@ -740,6 +808,10 @@ def main():
     for pr in prs:
         print(f"\n* [{pr['repo']}] PR #{pr['number']} ({pr['state']}) by @{pr['author']}: {pr['title']}")
         print(f"  Diff: +{pr['lines_added']} / -{pr['lines_deleted']} lines across {pr['changed_files']} files")
+        sla_badge = f"SLA: {pr.get('sla_status')}"
+        first_rev = f"Time-to-1st-Review: {pr.get('time_to_first_review_hours')}h" if pr.get('time_to_first_review_hours') is not None else "No review yet"
+        cycle = f"Cycle Time: {pr.get('cycle_time_hours')}h" if pr.get('cycle_time_hours') is not None else "Open"
+        print(f"  Turnaround: [{sla_badge}] | {first_rev} | {cycle}")
         if pr.get("unresolved_threads_count"):
             rev_breakdown = ", ".join([f"@{k}: {v}" for k, v in pr.get("reviewer_unresolved_counts", {}).items()])
             print(f"  Unresolved Threads: {pr['unresolved_threads_count']} ({rev_breakdown})")

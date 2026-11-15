@@ -133,6 +133,13 @@ class TestGitHubOrgActivityAnalyzer(unittest.TestCase):
         self.assertEqual(unresolved_thread["thread_initiator"], "carol")
         self.assertEqual(unresolved_thread["waiting_on"], "author")
 
+        # Verify Review SLA & Turnaround Telemetry metrics
+        self.assertEqual(pr["time_to_first_review_hours"], 2.0)
+        self.assertEqual(pr["time_to_first_approval_hours"], 2.0)
+        self.assertEqual(pr["sla_status"], "HEALTHY")
+        self.assertEqual(pr["first_review_at"], "2026-03-01T12:00:00Z")
+        self.assertIsNone(pr["cycle_time_hours"])
+
     def test_analyze_branches_concurrency_and_limits(self):
         analyzer = GitHubOrgActivityAnalyzer(token="dummy", owner="test-org", repo="repo1", max_branches=2, max_workers=2)
 

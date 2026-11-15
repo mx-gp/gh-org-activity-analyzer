@@ -85,7 +85,11 @@ test.describe('GitHub Activity & Review Analyzer Web Dashboard', () => {
                   }
                 ]
               }
-            ]
+            ],
+            time_to_first_review_hours: 0.5,
+            time_to_first_approval_hours: 0.5,
+            cycle_time_hours: 1.0,
+            sla_status: 'HEALTHY'
           }
         ],
         comments: [
@@ -150,11 +154,18 @@ test.describe('GitHub Activity & Review Analyzer Web Dashboard', () => {
     // Daily breakdown contains comment
     await expect(page.locator('#dailyTab')).toContainText('@dependabot rebase');
 
-    // Check PRs tab displays unresolved review thread badges
+    // Check PRs tab displays unresolved review thread badges and SLA turnaround
     await page.click('button:has-text("Pull Requests & Review Telemetry")');
     await expect(page.locator('#prsTab')).toBeVisible();
     await expect(page.locator('#prsTab')).toContainText('1 Unresolved Thread');
     await expect(page.locator('#prsTab')).toContainText('@lead-dev: 1 pending');
+    await expect(page.locator('#prsTab')).toContainText('SLA: HEALTHY');
+    await expect(page.locator('#prsTab')).toContainText('1st Review: 30m');
+    await expect(page.locator('#prsTab')).toContainText('Cycle Time: 1.0h');
+
+    // Check Turnaround and First Review Stat Cards
+    await expect(page.locator('#statTurnaround')).toHaveText('1.0h');
+    await expect(page.locator('#statTimeToFirstReview')).toHaveText('30m');
 
     // Check Review Threads & Debt tab
     await page.click('button:has-text("💬 Review Threads & Debt")');
